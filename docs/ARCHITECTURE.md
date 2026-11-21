@@ -82,3 +82,13 @@ Control และ PCM เป็น plaintext LAN prototype: nonce/session ใช
 - NSD (ทางเลือกสำหรับ discovery): https://developer.android.com/develop/connectivity/wifi/use-nsd
 - Local network permission: https://developer.android.com/privacy-and-security/local-network-permission
 - AGP 8.9 compatibility / Gradle 8.11.1 / JDK17: https://developer.android.com/build/releases/agp-8-9-0-release-notes
+## Player lifecycle and focus
+
+The embedded WebView is the music audio-focus owner. The native host does not register
+a competing focus request that closes the session when the web player starts audio.
+Only an explicit, confirmed Home action changes the selected role to Home.
+On stop, the app pauses top-level HTML5 media, pauses WebView, and stops native audio,
+sockets, and discovery locks while retaining the selected role and browser instance.
+On start it resumes that role and WebView; microphone peers must reconnect as needed.
+WebView renderer failures offer reload within the same Host screen. Fullscreen video
+uses an overlay, preserving the underlying player and session.

@@ -30,8 +30,8 @@ jobs:
       - name: Install native build tools
         run: sdkmanager "platforms;android-35" "build-tools;35.0.0" "ndk;27.0.12077973" "cmake;3.22.1"
       - run: chmod +x gradlew
-      - name: Build APK and check lint
-        run: ./gradlew :app:assembleDebug :app:lintDebug -PreleaseVersionCode="$GITHUB_RUN_NUMBER" -PreleaseVersionName="0.1.0-dev.$GITHUB_RUN_NUMBER" --no-daemon
+      - name: Build APK, lint, and test player flows
+        run: ./gradlew :app:assembleDebug :app:lintDebug :app:testDebugUnitTest -PreleaseVersionCode="$GITHUB_RUN_NUMBER" -PreleaseVersionName="0.1.0-dev.$GITHUB_RUN_NUMBER" --no-daemon
       - uses: actions/upload-artifact@v4
         with:
           name: KaraokeLink-debug
@@ -40,8 +40,11 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: lint-report
-          path: app/build/reports/lint-results-debug.*
+          name: validation-reports
+          path: |
+            app/build/reports/lint-results-debug.*
+            app/build/reports/tests/testDebugUnitTest/
+            app/build/test-results/testDebugUnitTest/*.xml
           if-no-files-found: ignore
   portable-audio:
     runs-on: ubuntu-latest
@@ -73,7 +76,7 @@ jobs:
           apk="KaraokeLink-${tag}.apk"
           mv release/app-debug.apk "release/$apk"
           (cd release && sha256sum "$apk" > SHA256SUMS.txt)
-          printf '%s\n' 'Automated development preview. Debug-signed APK for testing on Android 9 or newer.' 'Both Android build/lint and portable audio tests passed. Real-device audio testing is still required.' 'Preview signing keys can change between builds; an uninstall may be needed before installing a later preview.' > release-notes.txt
+          printf '%s\n' 'Automated development preview. Debug-signed APK for testing on Android 9 or newer.' 'Android build/lint, player regression tests, and portable audio tests passed. Real-device audio testing is still required.' 'Preview signing keys can change between builds; an uninstall may be needed before installing a later preview.' > release-notes.txt
           if gh release view "$tag" >/dev/null 2>&1; then
             gh release upload "$tag" "release/$apk" release/SHA256SUMS.txt --clobber
           else

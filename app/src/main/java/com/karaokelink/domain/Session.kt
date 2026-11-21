@@ -29,5 +29,7 @@ interface SessionRepository {
     fun hostMix(gain: Float, delayMs: Int)
     fun inputDevice(id: Int)
     suspend fun outputDevice(id: Int)
+    suspend fun pause()
+    fun destroy()
     suspend fun close()
 }

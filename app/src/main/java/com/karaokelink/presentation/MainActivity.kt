@@ -3,17 +3,25 @@ package com.karaokelink.presentation
 import android.Manifest
 import android.app.Activity
 import android.app.AlertDialog
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.pm.PackageManager
+import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
-import android.content.res.ColorStateList
-import android.view.WindowInsets
-import android.media.*
+import android.media.AudioDeviceInfo
+import android.media.AudioManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup
+import android.view.WindowInsets
 import android.view.WindowManager
+import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
 import android.webkit.*
 import android.widget.*
 import com.karaokelink.data.AndroidSessionRepository
@@ -23,126 +31,150 @@ import java.net.NetworkInterface
 import java.util.Collections
 import kotlin.math.roundToInt
 
-class MainActivity : Activity() {
+open class MainActivity : Activity() {
     private val ui = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-    private lateinit var repository: AndroidSessionRepository
+    private lateinit var repository: SessionRepository
+    private lateinit var stage: FrameLayout
     private lateinit var root: LinearLayout
     private lateinit var body: LinearLayout
     private lateinit var status: TextView
-    private lateinit var statistics: TextView
+    private lateinit var connection: TextView
     private lateinit var meter: ProgressBar
     private var hosts: LinearLayout? = null
     private var hostSignature = ""
     private var rendered: Mode? = null
     private var web: WebView? = null
+    private var playerFrame: FrameLayout? = null
+    private var pageNotice: TextView? = null
+    private var pageProgress: ProgressBar? = null
+    private var fullscreen: FrameLayout? = null
+    private var fullscreenCallback: WebChromeClient.CustomViewCallback? = null
+    private var firstMode: Mode? = null
+    private var lastUrl = PlayerNavigation.HOME
     private var pendingIp: String? = null
     private var pendingMic = false
     private var fx = MicEffects()
     private var micVolume = 1f
     private var musicVolume = 1f
     private var delayMs = 0
+    private val accent = Color.rgb(73, 222, 187)
+    private val screenColor = Color.rgb(14, 23, 38)
+    private val muted = Color.rgb(171, 187, 207)
     private val audio by lazy { getSystemService(AudioManager::class.java) }
-    private var focus: AudioFocusRequest? = null
-    private val focusListener = AudioManager.OnAudioFocusChangeListener { change ->
-        if (change == AudioManager.AUDIOFOCUS_LOSS || change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) {
-            ui.launch { repository.close() }
-        }
-    }
+
+    protected open fun createRepository(): SessionRepository = AndroidSessionRepository(applicationContext)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        repository = AndroidSessionRepository(applicationContext)
+        firstMode = savedInstanceState?.getString("mode")?.let { runCatching { Mode.valueOf(it) }.getOrNull() }
+        lastUrl = savedInstanceState?.getString("musicUrl") ?: PlayerNavigation.HOME
+        repository = createRepository()
         ui.launch {
             repository.state.collect { state ->
                 if (rendered != state.mode) render(state.mode)
-                status.text = state.status + if (state.engineError) "\nอุปกรณ์เสียงเปลี่ยน/ถูกตัด กรุณากลับ Home แล้วเชื่อมต่อใหม่" else ""
-                statistics.text = "ไมค์ ${state.peers}/2  •  RTT ${state.rttMs?.let { "$it ms" } ?: "—"}\n" +
-                    "คิวรับ ${state.queuedMs} ms  •  ขาดบัฟเฟอร์ ${state.underruns} ครั้ง\nRTT + คิวรับ ไม่ใช่ latency จากไมค์ถึงลำโพง"
+                status.text = if (state.engineError) "อุปกรณ์เสียงขัดข้อง • เปิดตั้งค่าเสียงเพื่อลองเชื่อมต่อใหม่" else state.status
+                connection.text = when (state.mode) {
+                    Mode.HOST -> "ไมค์ ${state.peers}/2 เครื่อง  •  IP ${localIps()}  ⧉"
+                    Mode.MIC -> if (state.peers > 0) "เชื่อมต่อแล้ว • พร้อมร้องเพลง" else "เลือกเครื่องเล่นจากรายการด้านล่าง"
+                    Mode.HOME -> "ต่อ Wi-Fi เดียวกัน แล้วเลือกหน้าที่ของเครื่องนี้"
+                }
                 meter.progress = (state.vu.coerceIn(0f, 1f) * 1000).toInt()
                 val signature = state.hosts.joinToString { "${it.ip}:${it.name}" }
                 if (signature != hostSignature) {
                     hostSignature = signature
                     hosts?.let { list ->
                         list.removeAllViews()
-                        if (state.hosts.isEmpty()) text(list, "กำลังค้นหา Host ใน Wi-Fi เดียวกัน…")
-                        state.hosts.forEach { h -> button(list, "เชื่อมต่อ ${h.name} • ${h.ip}") { chooseMic(h.ip) } }
+                        if (state.hosts.isEmpty()) text(list, "ยังไม่พบเครื่องเล่น\nเปิดเครื่องเล่นอีกเครื่องและใช้ Wi-Fi เดียวกัน", 14f, muted)
+                        state.hosts.forEach { h -> button(list, "เชื่อมต่อ ${h.name}\n${h.ip}") { chooseMic(h.ip) } }
                     }
                 }
             }
         }
     }
+
     override fun onStart() {
         super.onStart()
-        ui.launch { repository.select(Mode.HOME) }
+        val mode = firstMode ?: repository.state.value.mode
+        firstMode = null
+        // Returning from a browser or another app resumes the role, not the Home screen.
+        ui.launch { repository.select(mode) }
+        web?.onResume()
     }
+
     private fun render(mode: Mode) {
+        hideFullscreen()
+        destroyBrowser()
         rendered = mode
-        web?.apply { onPause(); stopLoading(); destroy() }; web = null
-        hosts = null; hostSignature = "!"
-        if (mode != Mode.HOST) abandonFocus()
+        hosts = null
+        hostSignature = "!"
+        playerFrame = null
+        pageNotice = null
+        pageProgress = null
         if (mode == Mode.HOME) window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         else window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        root = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(20), dp(20), dp(28))
-            setBackgroundColor(Color.rgb(14, 23, 38))
-        }
-        val scroll = ScrollView(this).apply {
-            isFillViewport = true
-            setBackgroundColor(Color.rgb(14, 23, 38))
-            addView(root)
-            setOnApplyWindowInsetsListener { view, insets ->
-                if (Build.VERSION.SDK_INT >= 30) {
-                    val safe = insets.getInsets(WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout() or WindowInsets.Type.ime())
-                    view.setPadding(safe.left, safe.top, safe.right, safe.bottom)
-                } else {
-                    @Suppress("DEPRECATION")
-                    view.setPadding(insets.systemWindowInsetLeft, insets.systemWindowInsetTop,
-                        insets.systemWindowInsetRight, insets.systemWindowInsetBottom)
-                }
-                insets
+        stage = FrameLayout(this).apply { setBackgroundColor(screenColor) }
+        root = column().apply { setPadding(dp(16), dp(10), dp(16), dp(12)) }
+        stage.addView(root, FrameLayout.LayoutParams(-1, -1))
+        stage.setOnApplyWindowInsetsListener { view, insets ->
+            if (Build.VERSION.SDK_INT >= 30) {
+                val safe = insets.getInsets(WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout() or WindowInsets.Type.ime())
+                view.setPadding(safe.left, safe.top, safe.right, safe.bottom)
+            } else {
+                @Suppress("DEPRECATION")
+                view.setPadding(insets.systemWindowInsetLeft, insets.systemWindowInsetTop,
+                    insets.systemWindowInsetRight, insets.systemWindowInsetBottom)
             }
+            insets
         }
-        setContentView(scroll)
-        scroll.requestApplyInsets()
-        text(root, "KaraokeLink", 30f, Color.rgb(73, 222, 187))
-        text(root, when(mode) { Mode.HOME -> "สองเครื่อง • แอปเดียว • Local Wi-Fi"; Mode.MIC -> "โหมดไมโครโฟน"; Mode.HOST -> "โหมดเครื่องเล่น / Host" }, 20f)
-        status = text(root, "พร้อมใช้งาน")
-        meter = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply { max = 1000; progressTintList = ColorStateList.valueOf(Color.rgb(73, 222, 187)); contentDescription = "ระดับเสียงไมโครโฟน" }
-        root.addView(meter, LinearLayout.LayoutParams(-1, dp(8)))
-        statistics = text(root, "", 12f, Color.LTGRAY)
-        meter.visibility = if (mode == Mode.HOME) View.GONE else View.VISIBLE
-        statistics.visibility = meter.visibility
-        body = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(16), dp(12), dp(16), dp(16))
-            background = panel(Color.rgb(23, 35, 53))
+        setContentView(stage)
+        stage.requestApplyInsets()
+        val header = row(root)
+        text(header, "KaraokeLink", 23f, accent).layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
+        if (mode != Mode.HOME) button(header, "หน้าแรก", false) { confirmHome() }
+        status = text(root, "พร้อมใช้งาน", 13f, muted)
+        connection = text(root, "", 13f, accent)
+        if (mode == Mode.HOST) connection.setOnClickListener {
+            getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("Host IP", localIps()))
+            toast("คัดลอก IP แล้ว")
         }
-        root.addView(body, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(16) })
-        when(mode) {
-            Mode.HOME -> home()
-            Mode.MIC -> mic()
-            Mode.HOST -> host()
+        meter = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
+            max = 1000
+            progressTintList = ColorStateList.valueOf(accent)
+            contentDescription = "ระดับเสียงไมโครโฟน"
+            visibility = if (mode == Mode.HOME) View.GONE else View.VISIBLE
         }
-        if (mode != Mode.HOME) button(root, "← กลับ Home / สลับโหมด") { ui.launch { repository.select(Mode.HOME) } }
+        root.addView(meter, LinearLayout.LayoutParams(-1, dp(5)))
+        body = column()
+        if (mode == Mode.HOST) root.addView(body, LinearLayout.LayoutParams(-1, 0, 1f))
+        else root.addView(ScrollView(this).apply { isFillViewport = true; addView(body) }, LinearLayout.LayoutParams(-1, 0, 1f))
+        when (mode) { Mode.HOME -> home(); Mode.MIC -> mic(); Mode.HOST -> host() }
+        applyPlayerLayout()
     }
+
     private fun home() {
-        button(body, "🎙 โหมดไมโครโฟน (Mic Mode)") { chooseMic(null) }
-        button(body, "▶ โหมดเครื่องเล่น (Player / Host)") { startHost() }
-        text(body, "เปิด Host บนเครื่องที่ต่อลำโพง แล้วเลือกเชื่อมต่อจากเครื่องไมค์", 15f)
-        discovery(body)
-        text(body, "หากใช้ Hotspot ให้กรอก IP ของ Host ที่แสดงบนเครื่องเล่น\nแอปรุ่นนี้หยุดเสียงเมื่อออกจากแอปหรือปิดหน้าจอ", 14f, Color.LTGRAY)
+        text(body, "พร้อมร้องเพลงแล้วหรือยัง?", 27f)
+        text(body, "ใช้เครื่องหนึ่งเปิดเพลง อีกเครื่องเป็นไมค์\nเริ่มจากเครื่องที่ต่อลำโพงก่อน", 16f, muted)
+        val player = card(body)
+        text(player, "1  เครื่องเปิดเพลง", 21f)
+        text(player, "ต่อเครื่องนี้เข้าลำโพง แล้วค้นหาเพลงที่ต้องการ", 15f, muted)
+        button(player, "เปิดเครื่องเล่นเพลง") { startHost() }
+        val microphone = card(body)
+        text(microphone, "2  เครื่องไมโครโฟน", 21f)
+        text(microphone, "เลือกเครื่องเล่น แล้วใช้มือถือเครื่องนี้ร้องเพลง", 15f, muted)
+        button(microphone, "ใช้เครื่องนี้เป็นไมค์") { chooseMic(null) }
+        text(body, "แนะนำลำโพงแบบสายหรือ USB เพื่อลดเสียงหน่วง\nแอปจะพักไมค์เมื่อสลับแอปหรือปิดหน้าจอ", 13f, muted)
     }
+
     private fun discovery(parent: LinearLayout) {
-        text(parent, "เครื่องเล่นที่พบ", 18f)
-        hosts = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        parent.addView(hosts)
-        text(hosts!!, "กำลังค้นหา Host…")
-        val ip = EditText(this).apply {
-            hint = "IP สำรอง เช่น 192.168.1.10"; setTextColor(Color.WHITE); setHintTextColor(Color.GRAY)
-            inputType = android.text.InputType.TYPE_CLASS_PHONE; setSingleLine(); contentDescription = "IP ของเครื่อง Host"
+        text(parent, "เลือกเครื่องเล่น", 21f)
+        hosts = column().also { parent.addView(it) }
+        text(hosts!!, "กำลังค้นหาเครื่องเล่น…", 14f, muted)
+        val manual = expandable(parent, "หาไม่เจอ? เชื่อมต่อด้วย IP")
+        text(manual, "ดู IP บนหน้าเครื่องเล่น แล้วกรอกด้านล่าง", 14f, muted)
+        val ip = input(manual, "เช่น 192.168.1.10").apply {
+            inputType = android.text.InputType.TYPE_CLASS_PHONE
         }
-        parent.addView(ip)
-        button(parent, "เชื่อมต่อ IP นี้") {
+        button(manual, "เชื่อมต่อ IP นี้") {
             val value = ip.text.toString().trim()
             val parts = value.split('.')
             if (parts.size != 4 || parts.any { part -> part.isEmpty() || part.any { !it.isDigit() } || part.toIntOrNull() !in 0..255 }) {
@@ -150,176 +182,339 @@ class MainActivity : Activity() {
             } else chooseMic(value)
         }
     }
+
     private fun chooseMic(ip: String?) {
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            pendingMic = true; pendingIp = ip
+            pendingMic = true
+            pendingIp = ip
             requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 10)
         } else ui.launch {
             if (repository.state.value.mode != Mode.MIC) repository.select(Mode.MIC)
             ip?.let { repository.connect(it) }
         }
     }
+
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == 10 && pendingMic) {
             pendingMic = false
             if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) chooseMic(pendingIp)
-            else Toast.makeText(this, "ต้องอนุญาตไมโครโฟนเพื่อส่งเสียง", Toast.LENGTH_LONG).show()
+            else toast("ต้องอนุญาตไมโครโฟนเพื่อส่งเสียง")
             pendingIp = null
         }
         if (requestCode == 11 && grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) pickOutput(true)
     }
+
     private fun mic() {
         discovery(body)
-        button(body, "เลือกไมค์: ในเครื่อง / สาย / USB (ก่อนเชื่อมต่อ)") {
+        text(body, "ระดับเสียงร้อง", 21f)
+        slider(body, "ความดังไมค์", 0f, 4f, fx.gain) { fx = fx.copy(gain = it); repository.effects(fx) }
+        slider(body, "เสียงก้อง", 0f, 1f, fx.echoMix) { fx = fx.copy(echoMix = it); repository.effects(fx) }
+        slider(body, "เสียงสะท้อนห้อง", 0f, 1f, fx.reverb) { fx = fx.copy(reverb = it); repository.effects(fx) }
+        val advanced = expandable(body, "ตั้งค่าไมค์เพิ่มเติม")
+        button(advanced, "เลือกไมค์ในเครื่อง / สาย / USB", false) {
             val devices = audio.getDevices(AudioManager.GET_DEVICES_INPUTS).filter { it.type != AudioDeviceInfo.TYPE_TELEPHONY }
-            val names = arrayOf("อัตโนมัติ (ระบบ Android)") + devices.map { "${it.productName} • type ${it.type}" }
+            val names = arrayOf("อัตโนมัติ (ระบบ Android)") + devices.map { it.productName.toString() }
             AlertDialog.Builder(this).setTitle("อุปกรณ์รับเสียง").setItems(names) { _, index ->
-                repository.inputDevice(if(index == 0) 0 else devices[index-1].id)
-                Toast.makeText(this,"เลือกแล้ว มีผลเมื่อเชื่อมต่อครั้งถัดไป",Toast.LENGTH_SHORT).show()
+                repository.inputDevice(if (index == 0) 0 else devices[index - 1].id)
+                toast("เลือกแล้ว มีผลเมื่อเชื่อมต่อครั้งถัดไป")
             }.show()
         }
-        text(body, "เอฟเฟกต์ประมวลผลบนเครื่องไมค์", 18f)
-        slider(body, "Mic gain", 0f, 4f, fx.gain) { fx=fx.copy(gain=it); repository.effects(fx) }
-        slider(body, "Noise gate", 0f, 0.08f, fx.gate) { fx=fx.copy(gate=it); repository.effects(fx) }
-        slider(body, "Echo delay (ms)", 5f, 700f, fx.echoMs) { fx=fx.copy(echoMs=it); repository.effects(fx) }
-        slider(body, "Echo feedback", 0f, 0.85f, fx.feedback) { fx=fx.copy(feedback=it); repository.effects(fx) }
-        slider(body, "Echo wet", 0f, 1f, fx.echoMix) { fx=fx.copy(echoMix=it); repository.effects(fx) }
-        slider(body, "Reverb wet", 0f, 1f, fx.reverb) { fx=fx.copy(reverb=it); repository.effects(fx) }
-        slider(body, "EQ low (200 Hz)", 0f, 2f, fx.low) { fx=fx.copy(low=it); repository.effects(fx) }
-        slider(body, "EQ mid", 0f, 2f, fx.mid) { fx=fx.copy(mid=it); repository.effects(fx) }
-        slider(body, "EQ high (3 kHz)", 0f, 2f, fx.high) { fx=fx.copy(high=it); repository.effects(fx) }
-        text(body,"ใช้หูฟัง/แยกไมค์ออกจากลำโพงเพื่อป้องกันเสียงหอน",14f,Color.LTGRAY)
+        slider(advanced, "ลดเสียงรบกวน", 0f, 0.08f, fx.gate) { fx = fx.copy(gate = it); repository.effects(fx) }
+        slider(advanced, "ระยะเสียงก้อง (ms)", 5f, 700f, fx.echoMs) { fx = fx.copy(echoMs = it); repository.effects(fx) }
+        slider(advanced, "เสียงก้องซ้ำ", 0f, 0.85f, fx.feedback) { fx = fx.copy(feedback = it); repository.effects(fx) }
+        slider(advanced, "เสียงทุ้ม", 0f, 2f, fx.low) { fx = fx.copy(low = it); repository.effects(fx) }
+        slider(advanced, "เสียงกลาง", 0f, 2f, fx.mid) { fx = fx.copy(mid = it); repository.effects(fx) }
+        slider(advanced, "เสียงแหลม", 0f, 2f, fx.high) { fx = fx.copy(high = it); repository.effects(fx) }
+        text(body, "ถือไมค์ให้ห่างจากลำโพงเพื่อป้องกันเสียงหอน", 13f, muted)
     }
+
     private fun startHost() {
-        abandonFocus()
-        val request = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
-            .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA)
-                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build())
-            .setOnAudioFocusChangeListener(focusListener).build()
-        if (audio.requestAudioFocus(request) != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
-            Toast.makeText(this,"ไม่สามารถขอ audio focus ได้",Toast.LENGTH_LONG).show(); return
-        }
-        focus = request
+        // WebView owns media audio focus. A second request here can receive LOSS when
+        // the embedded player starts; closing the session in that callback erased the player.
         val wired = audio.getDevices(AudioManager.GET_DEVICES_OUTPUTS).firstOrNull { isWired(it) }
         ui.launch { repository.outputDevice(wired?.id ?: 0); repository.select(Mode.HOST) }
     }
-    private fun isWired(d: AudioDeviceInfo) = d.type in listOf(AudioDeviceInfo.TYPE_WIRED_HEADPHONES,
-        AudioDeviceInfo.TYPE_WIRED_HEADSET, AudioDeviceInfo.TYPE_USB_DEVICE, AudioDeviceInfo.TYPE_USB_HEADSET)
-    private fun isBluetooth(d: AudioDeviceInfo) = d.type in listOf(AudioDeviceInfo.TYPE_BLUETOOTH_A2DP,
-        AudioDeviceInfo.TYPE_BLE_HEADSET, AudioDeviceInfo.TYPE_BLE_SPEAKER)
+
     private fun host() {
-        text(body, "IP เครื่องนี้: ${localIps()}", 14f, Color.rgb(73,222,187))
-        val hasWired = audio.getDevices(AudioManager.GET_DEVICES_OUTPUTS).any { isWired(it) }
-        text(body, if (hasWired) "เลือกสาย / USB เป็นค่าเริ่มต้นสำหรับเสียงไมค์" else "ไม่พบสาย / USB: ระบบใช้อุปกรณ์เริ่มต้น กรุณาเสียบสายแล้วเลือกขาออก",14f)
-        button(body, "เลือกขาออกแบบสาย / USB") { pickOutput(false) }
-        button(body, "เลือก Bluetooth (มีดีเลย์)") {
-            if (Build.VERSION.SDK_INT >= 31 && checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED)
-                requestPermissions(arrayOf(Manifest.permission.BLUETOOTH_CONNECT),11)
-            else pickOutput(true)
+        val search = row(body)
+        val query = input(search, "ค้นหาชื่อเพลง หรือวางลิงก์ HTTPS").apply {
+            imeOptions = EditorInfo.IME_ACTION_SEARCH
+            layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
         }
-        text(body,"ขาออกที่เลือกมีผลกับ Oboe; เสียง WebView ใช้ media route ของระบบ\nตั้งเส้นทางสื่อของ Android ให้ตรงกันด้วย",13f,Color.LTGRAY)
-        slider(body,"ระดับเสียงไมค์รวม",0f,2f,micVolume) { micVolume=it; repository.hostMix(micVolume,delayMs) }
-        slider(body,"Audio delay เพิ่มฝั่งไมค์ (ms)",0f,500f,delayMs.toFloat()) {
-            delayMs=it.roundToInt(); repository.hostMix(micVolume,delayMs)
+        fun openSong() {
+            val target = PlayerNavigation.resolve(query.text.toString())
+            if (target == null) { query.error = "ใช้ลิงก์ HTTPS หรือพิมพ์ชื่อเพลง"; return }
+            getSystemService(InputMethodManager::class.java).hideSoftInputFromWindow(query.windowToken, 0)
+            query.clearFocus()
+            loadMusic(target)
         }
-        text(body,"เพิ่ม delay ได้เท่านั้น ไม่สามารถลดดีเลย์ Bluetooth หรือแก้การได้ยินเสียงตัวเองช้าได้",13f,Color.LTGRAY)
-        text(body,"คาราโอเกะผ่าน WebView",18f)
-        val url = EditText(this).apply {
-            setText("https://www.youtube.com/"); setTextColor(Color.WHITE); setSingleLine()
-            inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_URI
+        query.setOnEditorActionListener { _, action, _ ->
+            if (action == EditorInfo.IME_ACTION_SEARCH) { openSong(); true } else false
         }
-        body.addView(url)
+        button(search, "ค้นหา") { openSong() }
+        val tools = row(body)
+        button(tools, "YouTube", false, true) { loadMusic(PlayerNavigation.HOME) }
+        button(tools, "โหลดใหม่", false, true) { loadMusic(lastUrl) }
+        button(tools, "ตั้งค่าเสียง", false, true) { hostSettings() }
+        pageProgress = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
+            max = 100; progressTintList = ColorStateList.valueOf(accent)
+            visibility = View.GONE
+        }.also { body.addView(it, LinearLayout.LayoutParams(-1, dp(3))) }
+        pageNotice = text(body, "เลือกเพลงแล้วกดเล่นในหน้าเว็บได้เลย", 12f, muted)
+        playerFrame = FrameLayout(this).also { body.addView(it, LinearLayout.LayoutParams(-1, 0, 1f)) }
+        createBrowser()
+        loadMusic(lastUrl)
+    }
+
+    private fun createBrowser() {
+        val frame = playerFrame ?: return
         val browser = WebView(this).apply {
-            settings.javaScriptEnabled=true
-            settings.domStorageEnabled=true
-            settings.allowFileAccess=false
-            settings.allowContentAccess=false
-            settings.mediaPlaybackRequiresUserGesture=true
-            settings.mixedContentMode=WebSettings.MIXED_CONTENT_NEVER_ALLOW
-            webViewClient=object : WebViewClient() {
-                override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean = request.url.scheme != "https"
-                override fun onPageFinished(view: WebView, url: String) { setMusicVolume() }
+            setBackgroundColor(Color.WHITE)
+            settings.javaScriptEnabled = true
+            settings.domStorageEnabled = true
+            settings.allowFileAccess = false
+            settings.allowContentAccess = false
+            settings.mediaPlaybackRequiresUserGesture = true
+            settings.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
+            settings.setSupportMultipleWindows(false)
+            webViewClient = object : WebViewClient() {
+                override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
+                    val blocked = request.url.scheme != "https"
+                    if (blocked && request.isForMainFrame) toast("เปิดลิงก์ HTTPS ภายในแอปได้ กรุณาเลือกเพลงในหน้านี้")
+                    return blocked
+                }
+                override fun onPageStarted(view: WebView, url: String, favicon: android.graphics.Bitmap?) {
+                    pageNotice?.text = "กำลังเปิดเพลง…"
+                }
+                override fun onPageFinished(view: WebView, url: String) {
+                    if (Uri.parse(url).scheme == "https") lastUrl = url
+                    if (pageNotice?.text == "กำลังเปิดเพลง…") pageNotice?.text = "กดเล่นที่วิดีโอ • ปุ่มย้อนกลับใช้กลับหน้าเพลงก่อนหน้า"
+                    setMusicVolume()
+                }
+                override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
+                    if (request.isForMainFrame) pageNotice?.text = "เปิดหน้าเพลงไม่ได้ ตรวจอินเทอร์เน็ตแล้วกดโหลดใหม่"
+                }
+                override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, response: WebResourceResponse) {
+                    if (request.isForMainFrame && response.statusCode >= 400) pageNotice?.text = "เว็บไซต์ไม่พร้อมใช้งาน (${response.statusCode}) • ลองโหลดใหม่หรือเลือกเว็บอื่น"
+                }
+                override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {
+                    hideFullscreen()
+                    if (web === view) web = null
+                    (view.parent as? ViewGroup)?.removeView(view)
+                    view.destroy()
+                    pageProgress?.visibility = View.GONE
+                    pageNotice?.text = "ตัวเล่นหยุดทำงาน • กดโหลดใหม่เพื่อเปิดเพลงอีกครั้ง"
+                    return true
+                }
+            }
+            webChromeClient = object : WebChromeClient() {
+                override fun onProgressChanged(view: WebView, progress: Int) {
+                    pageProgress?.progress = progress
+                    pageProgress?.visibility = if (progress < 100) View.VISIBLE else View.GONE
+                }
+                override fun onShowCustomView(view: View, callback: CustomViewCallback) {
+                    if (fullscreen != null) { callback.onCustomViewHidden(); return }
+                    fullscreenCallback = callback
+                    fullscreen = FrameLayout(this@MainActivity).apply {
+                        setBackgroundColor(Color.BLACK)
+                        addView(view, FrameLayout.LayoutParams(-1, -1))
+                        addView(Button(this@MainActivity).apply {
+                            text = "ย่อวิดีโอ"; isAllCaps = false
+                            setOnClickListener { hideFullscreen() }
+                        }, FrameLayout.LayoutParams(-2, dp(48), Gravity.TOP or Gravity.END))
+                    }.also { stage.addView(it, FrameLayout.LayoutParams(-1, -1)) }
+                }
+                override fun onHideCustomView() { hideFullscreen() }
             }
         }
-        web=browser
-        button(body,"เปิด URL (HTTPS)") {
-            val value=url.text.toString().trim()
-            val parsed=android.net.Uri.parse(value)
-            if (parsed.scheme=="https" && !parsed.host.isNullOrBlank()) browser.loadUrl(value)
-            else Toast.makeText(this,"กรุณาใช้ URL แบบ HTTPS",Toast.LENGTH_SHORT).show()
-        }
-        slider(body,"ระดับเพลง HTML5 (เฉพาะหน้าที่รองรับ)",0f,1f,musicVolume) { musicVolume=it; setMusicVolume(true) }
-        text(body,"เพลงและเสียงไมค์รวมกันที่ Android system mixer ในรุ่นนี้\nการปรับเพลงใช้ได้เฉพาะ audio/video ที่เข้าถึงได้ในหน้าเว็บ ไม่รวม iframe ต่างโดเมนหรือ DRM",13f,Color.LTGRAY)
-        body.addView(browser, LinearLayout.LayoutParams(-1, (420*resources.displayMetrics.density).toInt()))
+        web = browser
+        frame.addView(browser, FrameLayout.LayoutParams(-1, -1))
     }
+
+    private fun loadMusic(target: String) {
+        lastUrl = target
+        if (web == null) createBrowser()
+        web?.loadUrl(target)
+    }
+
+    private fun hostSettings() {
+        val settings = column().apply { setPadding(dp(20), dp(12), dp(20), dp(20)); setBackgroundColor(screenColor) }
+        val scroll = ScrollView(this).apply { addView(settings) }
+        slider(settings, "ความดังไมค์รวม", 0f, 2f, micVolume) { micVolume = it; repository.hostMix(micVolume, delayMs) }
+        slider(settings, "ความดังเพลง (เว็บที่รองรับ)", 0f, 1f, musicVolume) { musicVolume = it; setMusicVolume(true) }
+        text(settings, "ถ้าปรับเพลงไม่ได้ ให้ใช้ปุ่มเสียงของเว็บไซต์", 13f, muted)
+        button(settings, "เลือกขาออกสาย / USB", false) { pickOutput(false) }
+        button(settings, "เลือก Bluetooth", false) {
+            if (Build.VERSION.SDK_INT >= 31 && checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED)
+                requestPermissions(arrayOf(Manifest.permission.BLUETOOTH_CONNECT), 11)
+            else pickOutput(true)
+        }
+        text(settings, "เลือกลำโพงในเมนูเสียงสื่อของ Android ให้ตรงกันด้วย\nแนะนำสาย / USB; Bluetooth อาจได้ยินเสียงร้องช้า", 13f, muted)
+        val advanced = expandable(settings, "ตั้งค่าเพิ่มเติม / ข้อมูลเชื่อมต่อ")
+        slider(advanced, "เพิ่มดีเลย์ไมค์ (ms)", 0f, 500f, delayMs.toFloat()) {
+            delayMs = it.roundToInt(); repository.hostMix(micVolume, delayMs)
+        }
+        text(advanced, "เพิ่มดีเลย์ได้เท่านั้น ไม่สามารถลดความหน่วงของ Bluetooth", 13f, muted)
+        val state = repository.state.value
+        text(advanced, "RTT ${state.rttMs ?: "—"} ms • คิว ${state.queuedMs} ms\nขาดบัฟเฟอร์ ${state.underruns} ครั้ง\nค่านี้ไม่ใช่เวลาเสียงจากไมค์ถึงลำโพง", 13f, muted)
+        button(advanced, "เริ่มรับไมค์ใหม่", false) { ui.launch { repository.select(Mode.HOST) } }
+        AlertDialog.Builder(this).setTitle("ตั้งค่าเสียง").setView(scroll).setPositiveButton("เสร็จแล้ว", null).show()
+    }
+
     private fun setMusicVolume(report: Boolean = false) {
-        val value=String.format(java.util.Locale.US,"%.3f",musicVolume)
+        val value = String.format(java.util.Locale.US, "%.3f", musicVolume)
         web?.evaluateJavascript("(function(){var m=document.querySelectorAll('audio,video');m.forEach(function(x){x.volume=$value;});return m.length;})()") { result ->
-            if(report && result=="0") Toast.makeText(this,"หน้านี้ยังไม่มี HTML5 media ที่ปรับระดับเสียงได้",Toast.LENGTH_SHORT).show()
+            if (report && result == "0") toast("หน้านี้ยังไม่มีเพลงที่ปรับระดับเสียงได้ ใช้ปุ่มเสียงของเว็บไซต์")
         }
     }
+
+    private fun isWired(d: AudioDeviceInfo) = d.type in listOf(AudioDeviceInfo.TYPE_WIRED_HEADPHONES,
+        AudioDeviceInfo.TYPE_WIRED_HEADSET, AudioDeviceInfo.TYPE_USB_DEVICE, AudioDeviceInfo.TYPE_USB_HEADSET)
+    private fun isBluetooth(d: AudioDeviceInfo) = d.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
+        (Build.VERSION.SDK_INT >= 31 && d.type in listOf(AudioDeviceInfo.TYPE_BLE_HEADSET, AudioDeviceInfo.TYPE_BLE_SPEAKER))
+
     private fun pickOutput(bluetooth: Boolean) {
-        if(bluetooth) {
-            AlertDialog.Builder(this).setTitle("Bluetooth มีความหน่วงเพิ่มเติม")
-                .setMessage("เหมาะเป็นทางเลือกสำรอง การเพิ่ม delay ช่วยจัดเวลาได้บางกรณี แต่ลดความหน่วงของ Bluetooth ไม่ได้")
-                .setPositiveButton("เลือกอุปกรณ์") { _, _ -> outputList(true) }.setNegativeButton("ยกเลิก",null).show()
-        } else outputList(false)
+        if (bluetooth) AlertDialog.Builder(this).setTitle("Bluetooth อาจมีเสียงหน่วง")
+            .setMessage("ถ้าได้ยินเสียงร้องช้า แนะนำเปลี่ยนเป็นสายหรือ USB")
+            .setPositiveButton("เลือกอุปกรณ์") { _, _ -> outputList(true) }.setNegativeButton("ยกเลิก", null).show()
+        else outputList(false)
     }
     private fun outputList(bluetooth: Boolean) {
-        val devices=audio.getDevices(AudioManager.GET_DEVICES_OUTPUTS).filter { if(bluetooth) isBluetooth(it) else isWired(it) }
-        if(devices.isEmpty()) { Toast.makeText(this,"ไม่พบอุปกรณ์ กรุณาเชื่อมต่อจากการตั้งค่า Android ก่อน",Toast.LENGTH_LONG).show(); return }
-        AlertDialog.Builder(this).setTitle("เลือกขาออกเสียงไมค์ (ไมค์ต้องเชื่อมต่อใหม่)")
+        val devices = audio.getDevices(AudioManager.GET_DEVICES_OUTPUTS).filter { if (bluetooth) isBluetooth(it) else isWired(it) }
+        if (devices.isEmpty()) { toast("ไม่พบอุปกรณ์ กรุณาเชื่อมต่อจากการตั้งค่า Android ก่อน"); return }
+        AlertDialog.Builder(this).setTitle("เลือกขาออก (เครื่องไมค์ต้องเชื่อมต่อใหม่)")
             .setItems(devices.map { it.productName.toString() }.toTypedArray()) { _, index ->
                 ui.launch { repository.outputDevice(devices[index].id) }
             }.show()
+    }
+
+    private fun confirmHome() {
+        AlertDialog.Builder(this).setTitle("กลับหน้าแรก?")
+            .setMessage("เพลงและการเชื่อมต่อไมค์จะหยุด")
+            .setPositiveButton("หยุดและกลับหน้าแรก") { _, _ -> ui.launch { repository.select(Mode.HOME) } }
+            .setNegativeButton("เล่นต่อ", null).show()
+    }
+    private fun hideFullscreen() {
+        fullscreen?.let { (it.parent as? ViewGroup)?.removeView(it) }
+        fullscreen = null
+        val callback = fullscreenCallback
+        fullscreenCallback = null
+        callback?.onCustomViewHidden()
+    }
+    private fun destroyBrowser() {
+        web?.let { browser ->
+            (browser.parent as? ViewGroup)?.removeView(browser)
+            browser.onPause(); browser.stopLoading(); browser.destroy()
+        }
+        web = null
     }
     private fun localIps(): String = runCatching {
         Collections.list(NetworkInterface.getNetworkInterfaces()).flatMap { Collections.list(it.inetAddresses) }
             .filter { !it.isLoopbackAddress && it is java.net.Inet4Address }.joinToString { it.hostAddress ?: "" }
     }.getOrDefault("").ifBlank { "ดูในการตั้งค่า Wi-Fi" }
-    private fun text(parent: LinearLayout, value: String, size: Float=16f, color: Int=Color.WHITE): TextView =
-        TextView(this).apply { text=value; textSize=size; setTextColor(color); setPadding(0,dp(8),0,dp(8)); if (size >= 18f) setTypeface(typeface, Typeface.BOLD); parent.addView(this) }
-    private fun button(parent: LinearLayout, value: String, action: () -> Unit) {
-        parent.addView(Button(this).apply {
-            text=value; isAllCaps=false; textSize=15f
-            setTextColor(Color.rgb(14, 23, 38))
-            backgroundTintList=ColorStateList.valueOf(Color.rgb(73, 222, 187))
-            minHeight=dp(52)
-            setPadding(dp(12), dp(8), dp(12), dp(8))
-            setOnClickListener { action() }
-        }, LinearLayout.LayoutParams(-1,-2).apply { topMargin=dp(6); bottomMargin=dp(6) })
+    private fun column() = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+    private fun row(parent: LinearLayout) = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+        parent.addView(this, LinearLayout.LayoutParams(-1, -2))
     }
-    private fun slider(parent: LinearLayout,label: String,min: Float,max: Float,initial: Float,change: (Float)->Unit) {
-        val caption=text(parent,"$label: ${"%.3f".format(initial)}",14f)
-        val seek=SeekBar(this).apply { contentDescription=label; progressTintList=ColorStateList.valueOf(Color.rgb(73, 222, 187)); thumbTintList=progressTintList; this.max=1000; progress=((initial-min)/(max-min)*1000).toInt() }
-        seek.setOnSeekBarChangeListener(object:SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(bar: SeekBar?,progress: Int,fromUser: Boolean) {
-                if(fromUser) { val value=min+(max-min)*progress/1000; caption.text="$label: ${"%.3f".format(value)}"; change(value) }
-            }
-            override fun onStartTrackingTouch(bar: SeekBar?) {}
-            override fun onStopTrackingTouch(bar: SeekBar?) {}
-        })
-        parent.addView(seek)
+    private fun card(parent: LinearLayout) = column().apply {
+        setPadding(dp(16), dp(12), dp(16), dp(16))
+        background = GradientDrawable().apply { setColor(Color.rgb(23, 35, 53)); cornerRadius = dp(20).toFloat() }
+        parent.addView(this, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(14) })
+    }
+    private fun text(parent: LinearLayout, value: String, size: Float = 16f, color: Int = Color.WHITE) = TextView(this).apply {
+        text = value; textSize = size; setTextColor(color); setPadding(0, dp(6), 0, dp(6))
+        if (size >= 20f) setTypeface(typeface, Typeface.BOLD)
+        parent.addView(this)
+    }
+    private fun input(parent: LinearLayout, hintText: String) = EditText(this).apply {
+        hint = hintText; contentDescription = hintText
+        setTextColor(Color.WHITE); setHintTextColor(muted); textSize = 15f
+        setSingleLine(); minHeight = dp(48)
+        parent.addView(this, LinearLayout.LayoutParams(-1, -2))
+    }
+    private fun button(parent: LinearLayout, value: String, primary: Boolean = true, weighted: Boolean = false, action: () -> Unit): Button {
+        return Button(this).apply {
+            text = value; isAllCaps = false; textSize = 14f; minHeight = dp(48)
+            setTextColor(if (primary) screenColor else accent)
+            backgroundTintList = ColorStateList.valueOf(if (primary) accent else Color.rgb(29, 45, 64))
+            setPadding(dp(10), dp(6), dp(10), dp(6))
+            setOnClickListener { action() }
+            val horizontal = parent.orientation == LinearLayout.HORIZONTAL
+            parent.addView(this, LinearLayout.LayoutParams(if (weighted) 0 else if (horizontal) -2 else -1, -2,
+                if (weighted) 1f else 0f).apply { topMargin = dp(4); bottomMargin = dp(4) })
+        }
+    }
+    private fun expandable(parent: LinearLayout, title: String): LinearLayout {
+        val contents = column().apply { visibility = View.GONE }
+        val toggle = button(parent, "＋ $title", false) {
+            contents.visibility = if (contents.visibility == View.GONE) View.VISIBLE else View.GONE
+        }
+        toggle.setOnClickListener {
+            val expand = contents.visibility == View.GONE
+            contents.visibility = if (expand) View.VISIBLE else View.GONE
+            toggle.text = "${if (expand) "−" else "＋"} $title"
+        }
+        parent.addView(contents)
+        return contents
+    }
+    private fun slider(parent: LinearLayout, label: String, min: Float, max: Float, initial: Float, change: (Float) -> Unit) {
+        fun caption(value: Float) = "$label: ${if (max >= 100) value.roundToInt().toString() else "%.2f".format(value)}"
+        val text = text(parent, caption(initial), 14f)
+        parent.addView(SeekBar(this).apply {
+            contentDescription = label; this.max = 1000
+            progressTintList = ColorStateList.valueOf(accent); thumbTintList = progressTintList
+            progress = ((initial - min) / (max - min) * 1000).toInt()
+            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(bar: SeekBar?, progress: Int, fromUser: Boolean) {
+                    if (fromUser) { val value = min + (max - min) * progress / 1000; text.text = caption(value); change(value) }
+                }
+                override fun onStartTrackingTouch(bar: SeekBar?) {}
+                override fun onStopTrackingTouch(bar: SeekBar?) {}
+            })
+        }, LinearLayout.LayoutParams(-1, dp(48)))
     }
     private fun dp(value: Int) = (value * resources.displayMetrics.density).roundToInt()
-    private fun panel(color: Int) = GradientDrawable().apply {
-        setColor(color); cornerRadius=dp(20).toFloat()
-    }
-    private fun abandonFocus() { focus?.let { audio.abandonAudioFocusRequest(it) }; focus=null }
+    private fun toast(message: String) = Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+
     @Deprecated("Legacy back dispatch for framework Activity")
     override fun onBackPressed() {
-        if(repository.state.value.mode != Mode.HOME) ui.launch { repository.select(Mode.HOME) }
-        else super.onBackPressed()
+        when {
+            fullscreen != null -> hideFullscreen()
+            web?.canGoBack() == true -> web?.goBack()
+            repository.state.value.mode != Mode.HOME -> confirmHome()
+            else -> super.onBackPressed()
+        }
+    }
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        applyPlayerLayout()
+    }
+    private fun applyPlayerLayout() {
+        if (rendered != Mode.HOST) return
+        val compact = resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+        val visibility = if (compact) View.GONE else View.VISIBLE
+        status.visibility = visibility
+        connection.visibility = visibility
+        meter.visibility = visibility
+        pageNotice?.visibility = visibility
+    }
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putString("mode", repository.state.value.mode.name)
+        outState.putString("musicUrl", lastUrl)
+        super.onSaveInstanceState(outState)
     }
     override fun onStop() {
-        web?.onPause(); web?.stopLoading()
-        ui.launch { repository.close() }
-        abandonFocus()
+        hideFullscreen()
+        web?.evaluateJavascript("document.querySelectorAll('audio,video').forEach(function(x){x.pause();});", null)
+        web?.onPause()
+        // Stop capture and sockets in background while retaining the screen and browser.
+        ui.launch { repository.pause() }
         super.onStop()
     }
     override fun onDestroy() {
-        web?.destroy(); web=null
+        hideFullscreen(); destroyBrowser()
         repository.destroy(); ui.cancel(); super.onDestroy()
     }
 }

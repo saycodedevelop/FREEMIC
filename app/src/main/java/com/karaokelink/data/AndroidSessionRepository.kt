@@ -64,7 +64,7 @@ class AndroidSessionRepository(context: Context) : SessionRepository {
             }
         } catch (e: Exception) {
             reset()
-            mutable.value = SessionState(status = e.message ?: "เริ่มโหมดไม่สำเร็จ")
+            mutable.value = SessionState(mode = mode, status = e.message ?: "เริ่มโหมดไม่สำเร็จ")
         }
     }
     override suspend fun connect(ip: String) {
@@ -161,5 +161,10 @@ class AndroidSessionRepository(context: Context) : SessionRepository {
         if (state.value.mode == Mode.HOST) select(Mode.HOST)
     }
     override suspend fun close() { reset(); mutable.value = SessionState() }
-    fun destroy() { reset(); scope.cancel() }
+    override suspend fun pause() {
+        val mode = state.value.mode
+        reset()
+        mutable.value = SessionState(mode = mode, status = "พักการเชื่อมต่อเมื่อออกจากแอป")
+    }
+    override fun destroy() { reset(); scope.cancel() }
 }

@@ -1,7 +1,7 @@
 # Automatic preview releases
 
 Push to `main` or run **Android checks and automatic prerelease** from GitHub Actions.
-The workflow builds the universal APK, runs Android lint and portable C++ tests,
+The workflow builds the universal APK, runs Android lint, player regression tests, and portable C++ tests,
 then creates a `preview-<run number>` GitHub prerelease with the APK and SHA-256 checksums.
 Pull requests run checks without publishing. Failed checks prevent publishing.
 
@@ -17,7 +17,7 @@ Never commit keystores, passwords, or tokens.
 Local build (JDK 17 or 21, Android SDK 35, NDK 27.0.12077973, CMake 3.22.1):
 
 ```powershell
-.\gradlew.bat :app:assembleDebug :app:lintDebug
+.\gradlew.bat :app:assembleDebug :app:lintDebug :app:testDebugUnitTest
 ```
 
 Use `docs/TESTING.md` for real-device checks before wider distribution.

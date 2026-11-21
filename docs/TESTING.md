@@ -3,7 +3,7 @@
 ## Build และ static checks
 
 ```powershell
-.\gradlew.bat :app:assembleDebug :app:lintDebug
+.\gradlew.bat :app:assembleDebug :app:lintDebug :app:testDebugUnitTest
 ```
 
 CI ใน `.github/workflows/android.yml` ทำ build/lint และทดสอบ portable C++ core (packet validation, PCM roundtrip, SPSC ownership/order ภายใต้สอง thread, DSP finite/bounds) บน Linux ไม่แทนการทดสอบ Oboe/driver ด้วยเครื่องจริง
@@ -25,10 +25,22 @@ CI ใน `.github/workflows/android.yml` ทำ build/lint และทดส�
 | USB/สาย output และถอดสาย | ตรวจ route จริง; เมื่อ disconnected แสดง error และ reconnect ได้ |
 | Bluetooth A2DP/BLE | ขอ permission, route ตามอุปกรณ์จริง, แสดงข้อความเรื่อง delay |
 | เปิดเพลง WebView พร้อมไมค์ | ได้ยินพร้อมกันผ่าน route เดียว, music slider อาจใช้ไม่ได้ตามเว็บไซต์ |
-| กลับ Home/กด Home/ปิดหน้าจอ/audio-focus loss | เสียงและเว็บหยุด, ไม่บันทึก background |
+| เปิดเพลงจาก WebView | หน้าเครื่องเล่นและไมค์ยังอยู่ ไม่กลับหน้าเลือกเมื่อเพลงขอ audio focus |
+| สลับไปเบราว์เซอร์/กด Home/ปิดหน้าจอ แล้วกลับแอป | พักไมค์และการเชื่อมต่อใน background; กลับมาหน้าเดิมและ WebView เดิม; เครื่องไมค์เชื่อมต่อใหม่เมื่อจำเป็น |
+| กลับหน้าแรกในแอป | ต้องยืนยันก่อนหยุดเพลงและเปลี่ยนโหมด |
+| วิดีโอเต็มจอ/หมุนเครื่อง/ย้อนกลับ | ย่อเต็มจอก่อน, ย้อนประวัติเพลงก่อน, ไม่ปิดโหมดเครื่องเล่นเอง |
+| WebView renderer ล้ม | แสดงข้อความและกดโหลดใหม่ได้ โดยคงโหมด Host |
 | ใช้ต่อเนื่อง 30 นาที | บันทึก underruns, queue depth, clock drift, CPU/thermal |
 | VPN/AP isolation/Wi-Fi ไม่มี Internet | บันทึกข้อจำกัด route/broadcast; manual IP ไม่แก้ client isolation |
 
 วัด latency จริงด้วยสัญญาณ impulse/loopback และบันทึกผลแยก wired, USB, Bluetooth อย่าใช้ RTT/2 เป็นผลวัด end-to-end
 
 ก่อนส่งมอบ production ต้องตรวจบนอย่างน้อยสองผู้ผลิตและ Android หลายรุ่น ขนาด callback และ fast path แตกต่างกันตาม driver
+## Player regression tests
+
+`PlayerRegressionTest` uses Robolectric with a fake session repository to check
+foreground/background role preservation, WebView identity, explicit Home confirmation,
+in-app song search, renderer recovery, fullscreen Back behavior, and small-screen layout.
+`PlayerNavigationTest` covers Thai query encoding and rejected non-HTTPS links.
+These tests do not execute Chromium media playback or native audio drivers; use the
+real-device table above to verify actual websites and microphone playback.
