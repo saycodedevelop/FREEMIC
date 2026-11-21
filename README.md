@@ -19,6 +19,10 @@
 
 ภาพจากการเรนเดอร์ Android ด้วยสถานะจำลอง · [คู่มือผู้ใช้ใหม่](docs/USER_GUIDE.md)
 
+## Languages
+
+Thai, English, Simplified Chinese, Vietnamese and Indonesian are included. The app follows your phone’s language and uses English for unsupported languages. Choose **Language** on the home screen to save an override, or use Android 13+ app-language settings. Change language before starting a player or microphone session.
+
 ## เริ่มใช้งาน
 
 ครั้งแรกแอปจะแนะนำสามขั้นตอน ข้ามได้ และเปิดซ้ำจากปุ่ม **?** ทุกหน้า

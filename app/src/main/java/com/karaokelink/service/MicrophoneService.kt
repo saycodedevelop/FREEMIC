@@ -36,12 +36,15 @@ open class MicrophoneService : Service() {
     private var wifi: WifiManager.WifiLock? = null
     protected open fun createRepository(): SessionRepository = SessionRuntime.get(this)
 
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(com.karaokelink.presentation.AppLanguage.wrap(newBase))
+    }
     override fun onCreate() {
         super.onCreate()
         repository = createRepository()
         getSystemService(NotificationManager::class.java).createNotificationChannel(
-            NotificationChannel(CHANNEL, "ไมโครโฟนขณะปิดจอ", NotificationManager.IMPORTANCE_LOW).apply {
-                description = "แสดงขณะส่งเสียงไมค์ไปยังเครื่องเล่น พร้อมปุ่มหยุด"
+            NotificationChannel(CHANNEL, getString(R.string.notification_channel), NotificationManager.IMPORTANCE_LOW).apply {
+                description = getString(R.string.notification_description)
             })
     }
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -56,7 +59,7 @@ open class MicrophoneService : Service() {
             return START_NOT_STICKY
         }
         try {
-            val notification = notification("กำลังเชื่อมต่อเครื่องเล่น…")
+            val notification = notification(getString(R.string.notification_connecting))
             if (Build.VERSION.SDK_INT >= 30) startForeground(NOTIFICATION, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
             else startForeground(NOTIFICATION, notification)
             running = true
@@ -67,7 +70,7 @@ open class MicrophoneService : Service() {
                 var previous = ""
                 repository.state.collect { state ->
                     if (state.mode != Mode.MIC || !repository.continuesInBackground) { stopSelf(); return@collect }
-                    val message = if (state.peers > 0) "กำลังส่งเสียงไมค์ • ปิดหน้าจอได้" else state.status
+                    val message = if (state.peers > 0) getString(R.string.notification_streaming) else com.karaokelink.presentation.SessionPresenter.describe(this@MicrophoneService, state, true).detail
                     if (message != previous) {
                         previous = message
                         getSystemService(NotificationManager::class.java).notify(NOTIFICATION, notification(message))
@@ -86,10 +89,10 @@ open class MicrophoneService : Service() {
         val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         val stop = PendingIntent.getService(this, 1, Intent(this, MicrophoneService::class.java).setAction(STOP), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         return Notification.Builder(this, CHANNEL).setSmallIcon(R.drawable.ic_mic_notification)
-            .setContentTitle("KaraokeLink • ไมโครโฟนกำลังทำงาน").setContentText(message)
+            .setContentTitle(getString(R.string.notification_title)).setContentText(message)
             .setContentIntent(open).setOngoing(true).setOnlyAlertOnce(true)
             .setCategory(Notification.CATEGORY_SERVICE)
-            .addAction(Notification.Action.Builder(null, "หยุดไมค์", stop).build()).build()
+            .addAction(Notification.Action.Builder(null, getString(R.string.stop_mic), stop).build()).build()
     }
     @Suppress("DEPRECATION")
     private fun acquireNetworkLease() {

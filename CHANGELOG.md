@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Five-language support
+
+- Added Thai, English, Simplified Chinese, Vietnamese and Indonesian for controls, onboarding, connection guidance, accessibility labels and microphone notifications.
+- Follow the system language by default, with a saved language choice on the home screen and Android 13 app-language settings.
+- Keep backend diagnostics separate from translated connection messages.
+
+## [0.3.1]
+
 ### เก็บรายละเอียดหน้าตาและการใช้งาน
 
 - ปรับโทนสี พื้นผิว ปุ่ม และระยะห่างให้สอดคล้องกัน โดยให้ปุ่มหลักเด่นกว่าตัวเลือกเสริม

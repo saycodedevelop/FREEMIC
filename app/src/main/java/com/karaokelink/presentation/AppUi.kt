@@ -80,12 +80,12 @@ object AppUi {
         }
         val header = LinearLayout(activity).apply { gravity = Gravity.CENTER_VERTICAL }
         header.addView(label(activity, title, 21f, bold = true), LinearLayout.LayoutParams(0, -2, 1f))
-        header.addView(iconButton(activity, R.drawable.ic_dismiss, "ปิดหน้าต่าง") { dialog.dismiss() }, LinearLayout.LayoutParams(dp(activity, 48), dp(activity, 48)))
+        header.addView(iconButton(activity, R.drawable.ic_dismiss, activity.getString(R.string.close)) { dialog.dismiss() }, LinearLayout.LayoutParams(dp(activity, 48), dp(activity, 48)))
         shell.addView(header)
         shell.addView(label(activity, subtitle, 13f, muted).apply { setPadding(0, 0, 0, dp(activity, 16)) })
         (content.parent as? ViewGroup)?.removeView(content)
         shell.addView(ScrollView(activity).apply { addView(content); isFillViewport = false }, LinearLayout.LayoutParams(-1, 0, 1f))
-        shell.addView(action(activity, "เสร็จแล้ว").apply { setOnClickListener { dialog.dismiss() } },
+        shell.addView(action(activity, activity.getString(R.string.done)).apply { setOnClickListener { dialog.dismiss() } },
             LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(activity, 12) })
         dialog.setContentView(shell)
         dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))

@@ -19,7 +19,7 @@ import org.robolectric.annotation.Config
 import org.robolectric.shadows.ShadowDialog
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [35])
+@Config(sdk = [35], qualifiers = "th")
 class GettingStartedTest {
     class FirstRunActivity : MainActivity() {
         val fake = PlayerRegressionTest.FakeRepository()

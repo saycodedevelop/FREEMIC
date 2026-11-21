@@ -18,7 +18,7 @@ import org.robolectric.annotation.Config
 import org.robolectric.shadows.ShadowPowerManager
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [35])
+@Config(sdk = [35], qualifiers = "th")
 class MicrophoneServiceTest {
     class FakeRepository : SessionRepository {
         override val state = MutableStateFlow(SessionState(mode = Mode.MIC))

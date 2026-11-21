@@ -90,6 +90,10 @@ open class MainActivity : Activity() {
         }
     }
 
+    override fun attachBaseContext(newBase: android.content.Context) {
+        super.attachBaseContext(AppLanguage.wrap(newBase))
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         firstMode = savedInstanceState?.getString("mode")?.let { runCatching { Mode.valueOf(it) }.getOrNull() }
@@ -153,13 +157,13 @@ open class MainActivity : Activity() {
         val brand = column()
         brand.addView(AppUi.label(this, "KaraokeLink", 20f, bold = true).apply { maxLines = 1; ellipsize = TextUtils.TruncateAt.END })
         brand.addView(AppUi.label(this, when (mode) {
-            Mode.HOME -> "ร้องเพลงง่ายขึ้น ด้วยมือถือของคุณ"
-            Mode.HOST -> "เครื่องเล่นเพลง"
-            Mode.MIC -> "ไมโครโฟน"
+            Mode.HOME -> getString(R.string.tagline)
+            Mode.HOST -> getString(R.string.player)
+            Mode.MIC -> getString(R.string.microphone)
         }, 12f, muted).apply { maxLines = 1; ellipsize = TextUtils.TruncateAt.END })
         header.addView(brand, LinearLayout.LayoutParams(0, -2, 1f))
-        if (mode != Mode.HOME) button(header, "หน้าแรก", false) { confirmHome() }
-        header.addView(AppUi.iconButton(this, R.drawable.ic_help, "วิธีใช้งาน") { showGettingStarted() },
+        if (mode != Mode.HOME) button(header, getString(R.string.home), false) { confirmHome() }
+        header.addView(AppUi.iconButton(this, R.drawable.ic_help, getString(R.string.help)) { showGettingStarted() },
             LinearLayout.LayoutParams(dp(48), dp(48)).apply { leftMargin = dp(8) })
         statusPanel = column().apply {
             background = AppUi.shape(this@MainActivity, radius = 16)
@@ -171,13 +175,13 @@ open class MainActivity : Activity() {
             maxLines = 2; ellipsize = TextUtils.TruncateAt.END; setPadding(0, dp(3), 0, 0)
         }.also { statusPanel!!.addView(it) }
         if (mode == Mode.HOST) {
-            statusPanel!!.contentDescription = "สถานะเครื่องเล่น แตะดูวิธีเชื่อมต่อไมค์"
+            statusPanel!!.contentDescription = getString(R.string.player_status_hint)
             statusPanel!!.setOnClickListener { showHostConnection() }
         }
         meter = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
             max = 1000; progressTintList = ColorStateList.valueOf(accent)
             progressBackgroundTintList = ColorStateList.valueOf(AppUi.border)
-            contentDescription = "ระดับเสียงไมโครโฟน"
+            contentDescription = getString(R.string.mic_meter)
         }
         body = column()
         if (mode == Mode.HOST) root.addView(body, LinearLayout.LayoutParams(-1, 0, 1f))
@@ -193,7 +197,7 @@ open class MainActivity : Activity() {
     }
 
     private fun updateSessionUi(state: SessionState) {
-        val copy = SessionPresenter.describe(state, repository.continuesInBackground)
+        val copy = SessionPresenter.describe(this, state, repository.continuesInBackground)
         val tint = when (copy.tone) { StatusTone.READY -> accent; StatusTone.WAITING -> AppUi.amber; StatusTone.ERROR -> AppUi.danger }
         val title = "●  ${copy.title}"
         if (status.text.toString() != title) status.text = title
@@ -212,18 +216,22 @@ open class MainActivity : Activity() {
             micControlPanel?.visibility = if (live) View.VISIBLE else View.GONE
             micConnectSection?.visibility = if (!live || discoveryExpanded) View.VISIBLE else View.GONE
             micStopButton?.visibility = if (live || repository.continuesInBackground) View.VISIBLE else View.GONE
-            micStopButton?.text = if (live) "หยุดส่งเสียงไมค์" else "ยกเลิกการเชื่อมต่อ"
+            micStopButton?.text = if (live) getString(R.string.stop_stream) else getString(R.string.cancel_connection)
             changePlayerButton?.visibility = if (live) View.VISIBLE else View.GONE
-            changePlayerButton?.text = if (discoveryExpanded) "ซ่อนรายการเครื่องเล่น" else "เปลี่ยนเครื่องเล่น"
+            changePlayerButton?.text = if (discoveryExpanded) getString(R.string.hide_players) else getString(R.string.change_player)
         }
     }
 
     private fun home() {
-        text(body, "เริ่มร้องเพลงด้วยกัน", 25f)
-        text(body, "เลือกหน้าที่ของเครื่องนี้\nแล้วเชื่อมต่อมือถืออีกเครื่องผ่าน Wi-Fi", 14f, muted)
+        body.addView(AppUi.textAction(this, getString(R.string.language), accent).apply {
+            tag = "language-picker"
+            setOnClickListener { AppLanguage.show(this@MainActivity) }
+        }, LinearLayout.LayoutParams(-1, -2))
+        text(body, getString(R.string.home_title), 25f)
+        text(body, getString(R.string.home_detail), 14f, muted)
         val wifi = row(body).apply { setPadding(0, dp(6), 0, dp(4)) }
         wifi.addView(AppUi.icon(this, R.drawable.ic_wifi, muted, 20))
-        AppUi.label(this, "ต่อมือถือทั้งสองเครื่องกับ Wi-Fi เดียวกัน", 12f, muted).also {
+        AppUi.label(this, getString(R.string.same_wifi), 12f, muted).also {
             wifi.addView(it, LinearLayout.LayoutParams(0, -2, 1f).apply { leftMargin = dp(8) })
         }
         fun role(title: String, subtitle: String, step: String, icon: Int, tint: Int, actionLabel: String, action: () -> Unit) {
@@ -239,26 +247,26 @@ open class MainActivity : Activity() {
             text(panel, subtitle, 13f, muted)
             button(panel, actionLabel, primary = icon == R.drawable.ic_music, tint = tint, action = action)
         }
-        role("เครื่องเล่นเพลง", "ต่อลำโพง เปิดเพลง และรับเสียงจากไมค์", "01  เครื่องที่ต่อลำโพง", R.drawable.ic_music, accent, "เปิดเครื่องเล่นเพลง") { startHost() }
-        role("เครื่องไมโครโฟน", "ใช้มือถืออีกเครื่องถือร้อง พร้อมปิดจอได้", "02  เครื่องที่ถือร้อง", R.drawable.ic_mic, AppUi.violet, "ใช้เครื่องนี้เป็นไมค์") { chooseMic(null) }
-        body.addView(AppUi.textAction(this, "ดูวิธีเริ่มใช้งาน 3 ขั้นตอน", accent).apply { setOnClickListener { showGettingStarted() } }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
-        text(body, "สายหรือ USB เหมาะกับการร้องสด\nBluetooth อาจมีเสียงหน่วงตามอุปกรณ์", 12f, muted)
+        role(getString(R.string.player), getString(R.string.player_detail), getString(R.string.player_step), R.drawable.ic_music, accent, getString(R.string.start_player)) { startHost() }
+        role(getString(R.string.mic_role), getString(R.string.mic_detail), getString(R.string.mic_step), R.drawable.ic_mic, AppUi.violet, getString(R.string.use_mic)) { chooseMic(null) }
+        body.addView(AppUi.textAction(this, getString(R.string.guide_open), accent).apply { setOnClickListener { showGettingStarted() } }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
+        text(body, getString(R.string.latency_hint), 12f, muted)
     }
 
     private fun discovery(parent: LinearLayout) {
         val section = card(parent)
         micConnectSection = section
         section.tag = "mic-discovery"
-        text(section, "1  เลือกเครื่องเล่น", 19f)
-        text(section, "เปิดเครื่องเล่นบนมือถืออีกเครื่องก่อน", 13f, muted)
+        text(section, getString(R.string.select_player), 19f)
+        text(section, getString(R.string.open_other_player), 13f, muted)
         hosts = column().also { section.addView(it) }
-        val manual = expandable(section, "เชื่อมต่อด้วย IP")
-        text(manual, "ดู IP โดยแตะสถานะบนหน้าเครื่องเล่น", 13f, muted)
-        val ip = input(manual, "เช่น 192.168.1.10").apply { inputType = android.text.InputType.TYPE_CLASS_PHONE }
-        button(manual, "เชื่อมต่อ IP นี้") {
+        val manual = expandable(section, getString(R.string.connect_ip))
+        text(manual, getString(R.string.ip_hint), 13f, muted)
+        val ip = input(manual, getString(R.string.ip_example)).apply { inputType = android.text.InputType.TYPE_CLASS_PHONE }
+        button(manual, getString(R.string.connect_this_ip)) {
             val value = ip.text.toString().trim()
             val parts = value.split('.')
-            if (parts.size != 4 || parts.any { part -> part.isEmpty() || part.any { !it.isDigit() } || part.toIntOrNull() !in 0..255 }) ip.error = "กรอก IP ให้ครบ เช่น 192.168.1.10"
+            if (parts.size != 4 || parts.any { part -> part.isEmpty() || part.any { !it.isDigit() } || part.toIntOrNull() !in 0..255 }) ip.error = getString(R.string.ip_invalid)
             else chooseMic(value)
         }
     }
@@ -267,36 +275,36 @@ open class MainActivity : Activity() {
         if (found.isEmpty()) {
             val empty = column().apply { setPadding(dp(12), dp(12), dp(12), dp(8)); background = AppUi.shape(this@MainActivity, screenColor, 14) }
             list.addView(empty)
-            text(empty, "ยังไม่พบเครื่องเล่น", 16f)
-            text(empty, "ตรวจว่าทั้งสองเครื่องใช้ Wi-Fi เดียวกัน\nแล้วเปิดหน้าเครื่องเล่นค้างไว้ แอปค้นหาให้อัตโนมัติ", 13f, muted)
-            button(empty, "ค้นหาอีกครั้ง", false) { ui.launch { repository.select(Mode.MIC) } }
-            button(empty, "ช่วยเชื่อมต่อ", false) { showConnectionHelp() }
+            text(empty, getString(R.string.no_players), 16f)
+            text(empty, getString(R.string.discovery_hint), 13f, muted)
+            button(empty, getString(R.string.search_again), false) { ui.launch { repository.select(Mode.MIC) } }
+            button(empty, getString(R.string.connection_help), false) { showConnectionHelp() }
         }
         found.forEach { host ->
             val entry = column().apply { setPadding(dp(10), dp(10), dp(10), dp(8)); background = AppUi.shape(this@MainActivity, screenColor, 14) }
             list.addView(entry, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(8) })
             text(entry, host.name, 16f)
             text(entry, host.ip, 12f, muted)
-            button(entry, "เชื่อมต่อ ${host.name}", tint = AppUi.violet) { chooseMic(host.ip) }
+            button(entry, getString(R.string.connect_host, host.name), tint = AppUi.violet) { chooseMic(host.ip) }
         }
     }
 
     private fun showConnectionHelp() {
-        AlertDialog.Builder(this).setTitle("หาเครื่องเล่นไม่เจอ?")
-            .setMessage("1. เปิด «เครื่องเล่นเพลง» บนมือถือที่ต่อลำโพง\n\n2. ต่อมือถือทั้งสองเครื่องกับ Wi-Fi เดียวกัน\n\n3. ถ้ายังไม่พบ แตะสถานะเครื่องเล่นเพื่อดู IP แล้วเลือก «เชื่อมต่อด้วย IP» บนเครื่องไมค์\n\nWi-Fi สำหรับแขกหรือ Hotspot บางรุ่นอาจไม่อนุญาตให้อุปกรณ์ติดต่อกัน")
-            .setPositiveButton("เข้าใจแล้ว", null).show()
+        AlertDialog.Builder(this).setTitle(getString(R.string.player_not_found))
+            .setMessage(getString(R.string.connection_steps))
+            .setPositiveButton(getString(R.string.got_it), null).show()
     }
 
     private fun showHostConnection() {
         val content = column().apply { setPadding(0, 0, 0, dp(8)) }
-        text(content, "1. ใช้ Wi-Fi เดียวกัน\n2. บนอีกเครื่อง แตะ «ใช้เครื่องนี้เป็นไมค์»\n3. เลือกชื่อเครื่องเล่นนี้จากรายการ", 15f, muted)
-        text(content, "ถ้าค้นหาไม่พบ ใช้ IP นี้", 13f, muted)
+        text(content, getString(R.string.host_steps), 15f, muted)
+        text(content, getString(R.string.use_this_ip), 13f, muted)
         text(content, localIps(), 20f, accent).apply { setTextIsSelectable(true) }
-        button(content, "คัดลอก IP", false) {
+        button(content, getString(R.string.copy_ip), false) {
             getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("Host IP", localIps()))
-            toast("คัดลอก IP แล้ว")
+            toast(getString(R.string.ip_copied))
         }
-        showSettingsSheet("เชื่อมต่อเครื่องไมค์", "ใช้มือถือทั้งสองเครื่องบน Wi-Fi เดียวกัน", content)
+        showSettingsSheet(getString(R.string.connect_microphone), getString(R.string.two_phones_wifi), content)
     }
     private fun chooseMic(ip: String?) {
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
@@ -321,7 +329,7 @@ open class MainActivity : Activity() {
             val ip = pendingIp
             pendingIp = null
             if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) chooseMic(ip)
-            else toast("ต้องอนุญาตไมโครโฟนเพื่อส่งเสียง")
+            else toast(getString(R.string.mic_permission))
         }
         if (requestCode == 12 && pendingMic) {
             pendingMic = false
@@ -337,49 +345,49 @@ open class MainActivity : Activity() {
         val hero = row(live)
         hero.addView(AppUi.icon(this, R.drawable.ic_mic, AppUi.violet, 34), LinearLayout.LayoutParams(dp(34), dp(42)).apply { rightMargin = dp(12) })
         val titles = column()
-        micLiveTitle = AppUi.label(this, "รอการเชื่อมต่อ", 21f, bold = true).apply { accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE }.also { titles.addView(it) }
-        micLiveHint = AppUi.label(this, "เลือกเครื่องเล่นก่อนเริ่มร้อง", 12f, muted).also { titles.addView(it) }
+        micLiveTitle = AppUi.label(this, getString(R.string.waiting_connection), 21f, bold = true).apply { accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE }.also { titles.addView(it) }
+        micLiveHint = AppUi.label(this, getString(R.string.choose_before_singing), 12f, muted).also { titles.addView(it) }
         hero.addView(titles, LinearLayout.LayoutParams(0, -2, 1f))
-        text(live, "ระดับเสียงจากไมค์", 12f, muted)
+        text(live, getString(R.string.mic_level), 12f, muted)
         meter.progressTintList = ColorStateList.valueOf(AppUi.violet)
         live.addView(meter, LinearLayout.LayoutParams(-1, dp(12)).apply { topMargin = dp(4); bottomMargin = dp(12) })
         val actions = row(live)
-        micStopButton = button(actions, "หยุดส่งเสียงไมค์", false, true, tint = AppUi.danger) { ui.launch { repository.select(Mode.MIC) } }
-        changePlayerButton = button(actions, "เปลี่ยนเครื่องเล่น", false, true) {
+        micStopButton = button(actions, getString(R.string.stop_stream), false, true, tint = AppUi.danger) { ui.launch { repository.select(Mode.MIC) } }
+        changePlayerButton = button(actions, getString(R.string.change_player), false, true) {
             discoveryExpanded = !discoveryExpanded
             updateSessionUi(repository.state.value)
         }
         micControlPanel = card(body).also { controls ->
             controls.tag = "mic-controls"
-            text(controls, "เสียงร้องของคุณ", 19f)
-            text(controls, "ปรับความดังให้พอดีกับเสียงเพลง", 13f, muted)
-            slider(controls, "ความดังไมค์", 0f, 4f, fx.gain) { fx = fx.copy(gain = it); repository.effects(fx) }
-            slider(controls, "เสียงก้อง", 0f, 1f, fx.echoMix) { fx = fx.copy(echoMix = it); repository.effects(fx) }
-            slider(controls, "เสียงสะท้อนห้อง", 0f, 1f, fx.reverb) { fx = fx.copy(reverb = it); repository.effects(fx) }
+            text(controls, getString(R.string.your_voice), 19f)
+            text(controls, getString(R.string.balance_hint), 13f, muted)
+            slider(controls, getString(R.string.mic_gain), 0f, 4f, fx.gain) { fx = fx.copy(gain = it); repository.effects(fx) }
+            slider(controls, getString(R.string.echo), 0f, 1f, fx.echoMix) { fx = fx.copy(echoMix = it); repository.effects(fx) }
+            slider(controls, getString(R.string.reverb), 0f, 1f, fx.reverb) { fx = fx.copy(reverb = it); repository.effects(fx) }
         }
-        button(body, "ตั้งค่าไมค์และอุปกรณ์", false) { micSettings() }
-        text(body, "ถือไมค์ให้ห่างจากลำโพงเพื่อป้องกันเสียงหอน", 12f, muted)
+        button(body, getString(R.string.mic_devices), false) { micSettings() }
+        text(body, getString(R.string.feedback_hint), 12f, muted)
     }
 
     private fun micSettings() {
         val settings = column().apply { setPadding(0, 0, 0, dp(8)) }
-        button(settings, "เลือกไมค์ในเครื่อง / สาย / USB", false) {
+        button(settings, getString(R.string.select_input), false) {
             val devices = audio.getDevices(AudioManager.GET_DEVICES_INPUTS).filter { it.type != AudioDeviceInfo.TYPE_TELEPHONY }
-            val names = arrayOf("อัตโนมัติ (ระบบ Android)") + devices.map { it.productName.toString() }
-            AlertDialog.Builder(this).setTitle("อุปกรณ์รับเสียง").setItems(names) { _, index ->
+            val names = arrayOf(getString(R.string.automatic_audio)) + devices.map { it.productName.toString() }
+            AlertDialog.Builder(this).setTitle(getString(R.string.input_device)).setItems(names) { _, index ->
                 repository.inputDevice(if (index == 0) 0 else devices[index - 1].id)
-                toast("เลือกแล้ว มีผลเมื่อเชื่อมต่อครั้งถัดไป")
+                toast(getString(R.string.input_selected))
             }.show()
         }
-        text(settings, "เลือกอุปกรณ์ก่อนเชื่อมต่อเครื่องเล่น", 13f, muted)
-        val advanced = expandable(settings, "ปรับแต่งเสียงเพิ่มเติม")
-        slider(advanced, "ลดเสียงรบกวน (0 = ปิด)", 0f, 0.08f, fx.gate) { fx = fx.copy(gate = it); repository.effects(fx) }
-        slider(advanced, "ระยะเสียงก้อง (ms)", 5f, 700f, fx.echoMs) { fx = fx.copy(echoMs = it); repository.effects(fx) }
-        slider(advanced, "เสียงก้องซ้ำ", 0f, 0.85f, fx.feedback) { fx = fx.copy(feedback = it); repository.effects(fx) }
-        slider(advanced, "เสียงทุ้ม", 0f, 2f, fx.low) { fx = fx.copy(low = it); repository.effects(fx) }
-        slider(advanced, "เสียงกลาง", 0f, 2f, fx.mid) { fx = fx.copy(mid = it); repository.effects(fx) }
-        slider(advanced, "เสียงแหลม", 0f, 2f, fx.high) { fx = fx.copy(high = it); repository.effects(fx) }
-        showSettingsSheet("ตั้งค่าไมโครโฟน", "เลือกอุปกรณ์และปรับลักษณะเสียงร้อง", settings)
+        text(settings, getString(R.string.input_hint), 13f, muted)
+        val advanced = expandable(settings, getString(R.string.advanced_voice))
+        slider(advanced, getString(R.string.noise_gate), 0f, 0.08f, fx.gate) { fx = fx.copy(gate = it); repository.effects(fx) }
+        slider(advanced, getString(R.string.echo_delay), 5f, 700f, fx.echoMs) { fx = fx.copy(echoMs = it); repository.effects(fx) }
+        slider(advanced, getString(R.string.echo_feedback), 0f, 0.85f, fx.feedback) { fx = fx.copy(feedback = it); repository.effects(fx) }
+        slider(advanced, getString(R.string.bass), 0f, 2f, fx.low) { fx = fx.copy(low = it); repository.effects(fx) }
+        slider(advanced, getString(R.string.mid), 0f, 2f, fx.mid) { fx = fx.copy(mid = it); repository.effects(fx) }
+        slider(advanced, getString(R.string.treble), 0f, 2f, fx.high) { fx = fx.copy(high = it); repository.effects(fx) }
+        showSettingsSheet(getString(R.string.mic_settings), getString(R.string.mic_settings_hint), settings)
     }
     private fun startHost() {
         // WebView owns media audio focus. A second request here can receive LOSS when
@@ -390,13 +398,13 @@ open class MainActivity : Activity() {
 
     private fun host() {
         val search = row(body)
-        val query = input(search, "ชื่อเพลง หรือวางลิงก์เพลง").apply {
+        val query = input(search, getString(R.string.song_hint)).apply {
             imeOptions = EditorInfo.IME_ACTION_SEARCH
             layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
         }
         fun openSong() {
-            val target = PlayerNavigation.resolve(query.text.toString())
-            if (target == null) { query.error = "ใช้ลิงก์ HTTPS หรือพิมพ์ชื่อเพลง"; return }
+            val target = PlayerNavigation.resolve(query.text.toString(), getString(R.string.karaoke_search))
+            if (target == null) { query.error = getString(R.string.https_hint); return }
             getSystemService(InputMethodManager::class.java).hideSoftInputFromWindow(query.windowToken, 0)
             query.clearFocus()
             loadMusic(target)
@@ -404,16 +412,16 @@ open class MainActivity : Activity() {
         query.setOnEditorActionListener { _, action, _ ->
             if (action == EditorInfo.IME_ACTION_SEARCH) { openSong(); true } else false
         }
-        button(search, "ค้นหา") { openSong() }
+        button(search, getString(R.string.search)) { openSong() }
         val tools = row(body)
         button(tools, "YouTube", false, true) { loadMusic(PlayerNavigation.HOME) }
-        button(tools, "โหลดใหม่", false, true) { loadMusic(lastUrl) }
-        button(tools, "ตั้งค่าเสียง", false, true) { hostSettings() }
+        button(tools, getString(R.string.reload), false, true) { loadMusic(lastUrl) }
+        button(tools, getString(R.string.sound_settings), false, true) { hostSettings() }
         pageProgress = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
             max = 100; progressTintList = ColorStateList.valueOf(accent)
             visibility = View.GONE
         }.also { body.addView(it, LinearLayout.LayoutParams(-1, dp(3))) }
-        pageNotice = text(body, "เลือกเพลงแล้วกดเล่นในหน้าเว็บได้เลย", 12f, muted).apply { maxLines = 2; ellipsize = TextUtils.TruncateAt.END }
+        pageNotice = text(body, getString(R.string.play_hint), 12f, muted).apply { maxLines = 2; ellipsize = TextUtils.TruncateAt.END }
         playerFrame = FrameLayout(this).apply {
             background = AppUi.shape(this@MainActivity, Color.WHITE, 18, null)
             clipToOutline = true
@@ -437,22 +445,22 @@ open class MainActivity : Activity() {
             webViewClient = object : WebViewClient() {
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                     val blocked = request.url.scheme != "https"
-                    if (blocked && request.isForMainFrame) toast("เปิดลิงก์ HTTPS ภายในแอปได้ กรุณาเลือกเพลงในหน้านี้")
+                    if (blocked && request.isForMainFrame) toast(getString(R.string.https_only))
                     return blocked
                 }
                 override fun onPageStarted(view: WebView, url: String, favicon: android.graphics.Bitmap?) {
-                    pageNotice?.text = "กำลังเปิดเพลง…"
+                    pageNotice?.text = getString(R.string.loading_song)
                 }
                 override fun onPageFinished(view: WebView, url: String) {
                     if (Uri.parse(url).scheme == "https") lastUrl = url
-                    if (pageNotice?.text == "กำลังเปิดเพลง…") pageNotice?.text = "กดเล่นที่วิดีโอ • ปุ่มย้อนกลับใช้กลับหน้าเพลงก่อนหน้า"
+                    if (pageNotice?.text == getString(R.string.loading_song)) pageNotice?.text = getString(R.string.video_play_hint)
                     setMusicVolume()
                 }
                 override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
-                    if (request.isForMainFrame) pageNotice?.text = "เปิดหน้าเพลงไม่ได้ ตรวจอินเทอร์เน็ตแล้วกดโหลดใหม่"
+                    if (request.isForMainFrame) pageNotice?.text = getString(R.string.page_error)
                 }
                 override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, response: WebResourceResponse) {
-                    if (request.isForMainFrame && response.statusCode >= 400) pageNotice?.text = "เว็บไซต์ไม่พร้อมใช้งาน (${response.statusCode}) • ลองโหลดใหม่หรือเลือกเว็บอื่น"
+                    if (request.isForMainFrame && response.statusCode >= 400) pageNotice?.text = getString(R.string.http_error, response.statusCode)
                 }
                 override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {
                     hideFullscreen()
@@ -460,7 +468,7 @@ open class MainActivity : Activity() {
                     (view.parent as? ViewGroup)?.removeView(view)
                     view.destroy()
                     pageProgress?.visibility = View.GONE
-                    pageNotice?.text = "ตัวเล่นหยุดทำงาน • กดโหลดใหม่เพื่อเปิดเพลงอีกครั้ง"
+                    pageNotice?.text = getString(R.string.renderer_error)
                     return true
                 }
             }
@@ -476,7 +484,7 @@ open class MainActivity : Activity() {
                         setBackgroundColor(Color.BLACK)
                         addView(view, FrameLayout.LayoutParams(-1, -1))
                         addView(Button(this@MainActivity).apply {
-                            text = "ย่อวิดีโอ"; isAllCaps = false
+                            text = getString(R.string.exit_fullscreen); isAllCaps = false
                             setOnClickListener { hideFullscreen() }
                         }, FrameLayout.LayoutParams(-2, dp(48), Gravity.TOP or Gravity.END))
                     }.also { stage.addView(it, FrameLayout.LayoutParams(-1, -1)) }
@@ -496,27 +504,27 @@ open class MainActivity : Activity() {
 
     private fun hostSettings() {
         val settings = column().apply { setPadding(0, 0, 0, dp(8)) }
-        text(settings, "ระดับเสียง", 17f)
-        slider(settings, "ความดังไมค์รวม", 0f, 2f, micVolume) { micVolume = it; repository.hostMix(micVolume, delayMs) }
-        slider(settings, "ความดังเพลง (เว็บที่รองรับ)", 0f, 1f, musicVolume) { musicVolume = it; setMusicVolume(true) }
-        text(settings, "ถ้าปรับเพลงไม่ได้ ให้ใช้ปุ่มเสียงของเว็บไซต์", 13f, muted)
-        text(settings, "อุปกรณ์เสียง", 17f)
-        button(settings, "เลือกขาออกสาย / USB", false) { pickOutput(false) }
-        button(settings, "เลือก Bluetooth", false) {
+        text(settings, getString(R.string.volume), 17f)
+        slider(settings, getString(R.string.master_mic), 0f, 2f, micVolume) { micVolume = it; repository.hostMix(micVolume, delayMs) }
+        slider(settings, getString(R.string.music_volume), 0f, 1f, musicVolume) { musicVolume = it; setMusicVolume(true) }
+        text(settings, getString(R.string.volume_hint), 13f, muted)
+        text(settings, getString(R.string.audio_devices), 17f)
+        button(settings, getString(R.string.wired_output), false) { pickOutput(false) }
+        button(settings, getString(R.string.bluetooth_output), false) {
             if (Build.VERSION.SDK_INT >= 31 && checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED)
                 requestPermissions(arrayOf(Manifest.permission.BLUETOOTH_CONNECT), 11)
             else pickOutput(true)
         }
-        text(settings, "เลือกลำโพงในเมนูเสียงสื่อของ Android ให้ตรงกันด้วย\nแนะนำสาย / USB; Bluetooth อาจได้ยินเสียงร้องช้า", 13f, muted)
-        val advanced = expandable(settings, "ตั้งค่าเพิ่มเติม / ข้อมูลเชื่อมต่อ")
-        slider(advanced, "เพิ่มดีเลย์ไมค์ (ms)", 0f, 500f, delayMs.toFloat()) {
+        text(settings, getString(R.string.output_hint), 13f, muted)
+        val advanced = expandable(settings, getString(R.string.advanced_connection))
+        slider(advanced, getString(R.string.added_delay), 0f, 500f, delayMs.toFloat()) {
             delayMs = it.roundToInt(); repository.hostMix(micVolume, delayMs)
         }
-        text(advanced, "เพิ่มดีเลย์ได้เท่านั้น ไม่สามารถลดความหน่วงของ Bluetooth", 13f, muted)
+        text(advanced, getString(R.string.delay_hint), 13f, muted)
         val state = repository.state.value
-        text(advanced, "RTT ${state.rttMs ?: "—"} ms • คิว ${state.queuedMs} ms\nขาดบัฟเฟอร์ ${state.underruns} ครั้ง\nค่านี้ไม่ใช่เวลาเสียงจากไมค์ถึงลำโพง", 13f, muted)
-        button(advanced, "เริ่มรับไมค์ใหม่", false) { ui.launch { repository.select(Mode.HOST) } }
-        showSettingsSheet("มิกเซอร์เสียง", "ปรับสมดุลเสียงเพลงและไมโครโฟน", settings)
+        text(advanced, getString(R.string.network_stats, state.rttMs?.toString() ?: "—", state.queuedMs, state.underruns), 13f, muted)
+        button(advanced, getString(R.string.restart_receiver), false) { ui.launch { repository.select(Mode.HOST) } }
+        showSettingsSheet(getString(R.string.mixer), getString(R.string.mixer_hint), settings)
     }
 
     private fun showSettingsSheet(title: String, subtitle: String, content: View) {
@@ -531,7 +539,7 @@ open class MainActivity : Activity() {
     private fun setMusicVolume(report: Boolean = false) {
         val value = String.format(java.util.Locale.US, "%.3f", musicVolume)
         web?.evaluateJavascript("(function(){var m=document.querySelectorAll('audio,video');m.forEach(function(x){x.volume=$value;});return m.length;})()") { result ->
-            if (report && result == "0") toast("หน้านี้ยังไม่มีเพลงที่ปรับระดับเสียงได้ ใช้ปุ่มเสียงของเว็บไซต์")
+            if (report && result == "0") toast(getString(R.string.no_media_volume))
         }
     }
 
@@ -541,25 +549,25 @@ open class MainActivity : Activity() {
         (Build.VERSION.SDK_INT >= 31 && d.type in listOf(AudioDeviceInfo.TYPE_BLE_HEADSET, AudioDeviceInfo.TYPE_BLE_SPEAKER))
 
     private fun pickOutput(bluetooth: Boolean) {
-        if (bluetooth) AlertDialog.Builder(this).setTitle("Bluetooth อาจมีเสียงหน่วง")
-            .setMessage("ถ้าได้ยินเสียงร้องช้า แนะนำเปลี่ยนเป็นสายหรือ USB")
-            .setPositiveButton("เลือกอุปกรณ์") { _, _ -> outputList(true) }.setNegativeButton("ยกเลิก", null).show()
+        if (bluetooth) AlertDialog.Builder(this).setTitle(getString(R.string.bluetooth_delay))
+            .setMessage(getString(R.string.bluetooth_hint))
+            .setPositiveButton(getString(R.string.select_device)) { _, _ -> outputList(true) }.setNegativeButton(getString(R.string.cancel), null).show()
         else outputList(false)
     }
     private fun outputList(bluetooth: Boolean) {
         val devices = audio.getDevices(AudioManager.GET_DEVICES_OUTPUTS).filter { if (bluetooth) isBluetooth(it) else isWired(it) }
-        if (devices.isEmpty()) { toast("ไม่พบอุปกรณ์ กรุณาเชื่อมต่อจากการตั้งค่า Android ก่อน"); return }
-        AlertDialog.Builder(this).setTitle("เลือกขาออก (เครื่องไมค์ต้องเชื่อมต่อใหม่)")
+        if (devices.isEmpty()) { toast(getString(R.string.no_devices)); return }
+        AlertDialog.Builder(this).setTitle(getString(R.string.select_output))
             .setItems(devices.map { it.productName.toString() }.toTypedArray()) { _, index ->
                 ui.launch { repository.outputDevice(devices[index].id) }
             }.show()
     }
 
     private fun confirmHome() {
-        AlertDialog.Builder(this).setTitle("กลับหน้าแรก?")
-            .setMessage("เพลงและการเชื่อมต่อไมค์จะหยุด")
-            .setPositiveButton("หยุดและกลับหน้าแรก") { _, _ -> ui.launch { repository.select(Mode.HOME) } }
-            .setNegativeButton("เล่นต่อ", null).show()
+        AlertDialog.Builder(this).setTitle(getString(R.string.return_home))
+            .setMessage(getString(R.string.stop_warning))
+            .setPositiveButton(getString(R.string.stop_home)) { _, _ -> ui.launch { repository.select(Mode.HOME) } }
+            .setNegativeButton(getString(R.string.keep_playing), null).show()
     }
     private fun hideFullscreen() {
         fullscreen?.let { (it.parent as? ViewGroup)?.removeView(it) }
@@ -578,7 +586,7 @@ open class MainActivity : Activity() {
     private fun localIps(): String = runCatching {
         Collections.list(NetworkInterface.getNetworkInterfaces()).flatMap { Collections.list(it.inetAddresses) }
             .filter { !it.isLoopbackAddress && it is java.net.Inet4Address }.joinToString { it.hostAddress ?: "" }
-    }.getOrDefault("").ifBlank { "ดูในการตั้งค่า Wi-Fi" }
+    }.getOrDefault("").ifBlank { getString(R.string.wifi_settings) }
     private fun column() = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
     private fun row(parent: LinearLayout) = LinearLayout(this).apply {
         orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
@@ -628,7 +636,7 @@ open class MainActivity : Activity() {
     private fun slider(parent: LinearLayout, label: String, min: Float, max: Float, initial: Float, change: (Float) -> Unit) {
         fun format(value: Float): String = when {
             label.contains("(ms)") -> "${value.roundToInt()} ms"
-            label.contains("ลดเสียงรบกวน") -> if (value <= 0f) "ปิด" else "%.3f".format(value)
+            label == getString(R.string.noise_gate) -> if (value <= 0f) getString(R.string.off) else "%.3f".format(value)
             else -> "${(value * 100).roundToInt()}%"
         }
         val caption = row(parent).apply { setPadding(0, dp(10), 0, 0) }

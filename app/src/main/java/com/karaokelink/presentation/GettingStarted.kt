@@ -1,5 +1,6 @@
 package com.karaokelink.presentation
 
+import com.karaokelink.R
 import android.app.Activity
 import android.app.Dialog
 import android.graphics.*
@@ -12,12 +13,13 @@ import android.widget.*
 /** Three short steps, with explicit Skip and an always-available replay entry. */
 object GettingStarted {
     private data class Page(val eyebrow: String, val title: String, val detail: String, val steps: List<String>)
-    private val pages = listOf(
-        Page("เตรียมก่อนเริ่ม", "สองเครื่อง เวทีเดียวกัน", "ใช้มือถือเครื่องหนึ่งเปิดเพลง\nและอีกเครื่องเป็นไมโครโฟน", listOf("ต่อมือถือทั้งสองเครื่องเข้ากับ Wi-Fi เดียวกัน", "ต่อลำโพงกับเครื่องที่ใช้เปิดเพลง", "แนะนำสายหรือ USB หากต้องการเสียงร้องหน่วงน้อย")),
-        Page("เครื่องที่ 1 • เครื่องเล่น", "เปิดเพลงบนเครื่องนี้", "เลือกเครื่องที่ต่อลำโพง\nแล้วแตะ «เปิดเครื่องเล่นเพลง»", listOf("ค้นหาชื่อเพลง หรือวางลิงก์ HTTPS ในแอป", "กดเล่นวิดีโอบนหน้าเพลง", "เปิดหน้านี้ค้างไว้ แล้วเตรียมมือถือเครื่องไมค์")),
-        Page("เครื่องที่ 2 • ไมโครโฟน", "เชื่อมต่อ แล้วเริ่มร้อง", "บนมือถืออีกเครื่อง\nแตะ «ใช้เครื่องนี้เป็นไมค์»", listOf("อนุญาตไมโครโฟน และการแจ้งเตือน", "เลือกเครื่องเล่นที่แอปค้นพบ รอคำว่า «ไมค์พร้อมร้อง»", "ปิดหน้าจอร้องต่อได้ หยุดจากปุ่มในการแจ้งเตือน"))
+    private fun pages(activity: Activity) = listOf(
+        Page(activity.getString(R.string.setup_prepare), activity.getString(R.string.setup_title), activity.getString(R.string.setup_detail), listOf(activity.getString(R.string.setup_wifi), activity.getString(R.string.setup_speaker), activity.getString(R.string.setup_latency))),
+        Page(activity.getString(R.string.setup_player_step), activity.getString(R.string.setup_player_title), activity.getString(R.string.setup_player_detail), listOf(activity.getString(R.string.setup_search), activity.getString(R.string.setup_play), activity.getString(R.string.setup_keep_open))),
+        Page(activity.getString(R.string.setup_mic_step), activity.getString(R.string.setup_mic_title), activity.getString(R.string.setup_mic_detail), listOf(activity.getString(R.string.setup_allow), activity.getString(R.string.setup_connect), activity.getString(R.string.setup_screen_off)))
     )
     fun show(activity: Activity, completed: () -> Unit): Dialog {
+        val pages = pages(activity)
         val dialog = Dialog(activity)
         val shell = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
@@ -27,15 +29,15 @@ object GettingStarted {
         val header = LinearLayout(activity).apply { gravity = Gravity.CENTER_VERTICAL }
         val step = AppUi.label(activity, "", 13f, AppUi.mint, true)
         header.addView(step, LinearLayout.LayoutParams(0, -2, 1f))
-        val skip = AppUi.action(activity, "ข้าม", false).apply { minHeight = dp(activity, 48) }
+        val skip = AppUi.action(activity, activity.getString(R.string.skip), false).apply { minHeight = dp(activity, 48) }
         header.addView(skip)
         shell.addView(header)
         val content = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
         val scrolling = ScrollView(activity).apply { addView(content); isFillViewport = false }
         shell.addView(scrolling, LinearLayout.LayoutParams(-1, 0, 1f))
         val footer = LinearLayout(activity).apply { gravity = Gravity.CENTER_VERTICAL }
-        val back = AppUi.action(activity, "ย้อนกลับ", false)
-        val next = AppUi.action(activity, "ถัดไป")
+        val back = AppUi.action(activity, activity.getString(R.string.back), false)
+        val next = AppUi.action(activity, activity.getString(R.string.next))
         footer.addView(back, LinearLayout.LayoutParams(0, -2, 1f).apply { rightMargin = dp(activity, 10) })
         footer.addView(next, LinearLayout.LayoutParams(0, -2, 1f))
         shell.addView(footer)
@@ -43,7 +45,7 @@ object GettingStarted {
         fun finish() { completed(); dialog.dismiss() }
         fun renderPage() {
             val page = pages[index]
-            step.text = "เริ่มใช้งาน  ${index + 1} / ${pages.size}"
+            step.text = activity.getString(R.string.setup_progress, index + 1, pages.size)
             content.removeAllViews()
             content.addView(SetupDrawing(activity, index), LinearLayout.LayoutParams(-1, dp(activity, 150)))
             content.addView(AppUi.label(activity, page.eyebrow, 13f, if (index == 2) AppUi.violet else AppUi.mint, true))
@@ -57,7 +59,7 @@ object GettingStarted {
             }
             content.setPadding(0, 0, 0, dp(activity, 22))
             back.visibility = if (index == 0) View.GONE else View.VISIBLE
-            next.text = if (index == pages.lastIndex) "เริ่มใช้งาน" else "ถัดไป"
+            next.text = if (index == pages.lastIndex) activity.getString(R.string.get_started) else activity.getString(R.string.next)
             scrolling.post { scrolling.scrollTo(0, 0) }
         }
         back.setOnClickListener { if (index > 0) { index--; renderPage() } }
@@ -81,7 +83,7 @@ object GettingStarted {
     private fun dp(activity: Activity, value: Int) = AppUi.dp(activity, value)
 
     /** Code-native onboarding illustration: no bitmap downloads or image dependencies. */
-    private class SetupDrawing(activity: Activity, private val page: Int) : View(activity) {
+    private class SetupDrawing(private val activity: Activity, private val page: Int) : View(activity) {
         private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
         override fun onDraw(canvas: Canvas) {
             super.onDraw(canvas)
@@ -113,8 +115,8 @@ object GettingStarted {
             canvas.drawLine(132f, 66f, 140f, 59f, paint)
             canvas.drawLine(132f, 66f, 140f, 73f, paint)
             paint.style = Paint.Style.FILL; paint.color = AppUi.muted; paint.textSize = 11f; paint.textAlign = Paint.Align.CENTER
-            canvas.drawText("เครื่องเล่น", 77f, 144f, paint)
-            canvas.drawText("เครื่องไมค์", 243f, 144f, paint)
+            canvas.drawText(activity.getString(R.string.player_short), 77f, 144f, paint)
+            canvas.drawText(activity.getString(R.string.mic_short), 243f, 144f, paint)
             canvas.restore()
         }
     }

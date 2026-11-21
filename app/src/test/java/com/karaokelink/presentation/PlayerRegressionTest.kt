@@ -22,7 +22,7 @@ import org.robolectric.annotation.Config
 import org.robolectric.shadows.ShadowAlertDialog
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [35])
+@Config(sdk = [35], qualifiers = "th")
 class PlayerRegressionTest {
     class TestActivity : MainActivity() {
         val fake = FakeRepository()
@@ -158,7 +158,7 @@ class PlayerRegressionTest {
         controller.pause().stop().destroy()
     }
     @Test
-    @Config(qualifiers = "land")
+    @Config(qualifiers = "th-land")
     fun landscapeKeepsUsableVideoArea() {
         val controller = Robolectric.buildActivity(TestActivity::class.java).setup()
         val activity = controller.get()

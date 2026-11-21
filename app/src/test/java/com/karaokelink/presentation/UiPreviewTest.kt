@@ -21,7 +21,7 @@ import org.robolectric.shadows.ShadowDialog
 
 /** Real Android/Skia rendering artifacts for visual review, not a browser mockup. */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [35], qualifiers = "w393dp-h852dp-xhdpi")
+@Config(sdk = [35], qualifiers = "th-w393dp-h852dp-xhdpi")
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class UiPreviewTest {
     private fun all(view: View): List<View> = listOf(view) + if (view is ViewGroup)
