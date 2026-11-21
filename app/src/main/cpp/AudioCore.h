@@ -55,7 +55,7 @@ public:
     uint32_t size() const { return write.load(std::memory_order_acquire)-read.load(std::memory_order_acquire); }
 };
 struct Effects {
-    std::atomic<float> gain{1}, gate{0.006f}, echoMs{140}, feedback{0.2f}, echoMix{0},
+    std::atomic<float> gain{1}, gate{0.f}, echoMs{140}, feedback{0.2f}, echoMix{0},
         reverb{0}, low{1}, mid{1}, high{1};
 };
 /** Starter DSP: smoothed three-band crossover, soft gate, echo, three comb reverberators. */
@@ -63,7 +63,7 @@ class Dsp {
     std::array<float, Rate> echo{};
     std::array<float, 5000> comb1{}, comb2{}, comb3{};
     size_t pos=0, r1=0, r2=0, r3=0;
-    float lpLow=0, lpHigh=0, envelope=0, gateGain=0, gain=1, low=1, mid=1, high=1;
+    float lpLow=0, lpHigh=0, envelope=0, gateGain=1, gain=1, low=1, mid=1, high=1;
 public:
     float process(float x, const Effects& e) {
         gain += 0.001f*(e.gain.load(std::memory_order_relaxed)-gain);

@@ -26,7 +26,7 @@ CI ใน `.github/workflows/android.yml` ทำ build/lint และทดส�
 | Bluetooth A2DP/BLE | ขอ permission, route ตามอุปกรณ์จริง, แสดงข้อความเรื่อง delay |
 | เปิดเพลง WebView พร้อมไมค์ | ได้ยินพร้อมกันผ่าน route เดียว, music slider อาจใช้ไม่ได้ตามเว็บไซต์ |
 | เปิดเพลงจาก WebView | หน้าเครื่องเล่นและไมค์ยังอยู่ ไม่กลับหน้าเลือกเมื่อเพลงขอ audio focus |
-| สลับไปเบราว์เซอร์/กด Home/ปิดหน้าจอ แล้วกลับแอป | พักไมค์และการเชื่อมต่อใน background; กลับมาหน้าเดิมและ WebView เดิม; เครื่องไมค์เชื่อมต่อใหม่เมื่อจำเป็น |
+| สลับไปเบราว์เซอร์/กด Home/ปิดหน้าจอ แล้วกลับแอป | เครื่อง Host พักเสียงและคงหน้าเดิม; เครื่อง Mic ที่เชื่อมต่อและมี foreground service ต้องส่งเสียงต่อโดยไม่ reconnect |
 | กลับหน้าแรกในแอป | ต้องยืนยันก่อนหยุดเพลงและเปลี่ยนโหมด |
 | วิดีโอเต็มจอ/หมุนเครื่อง/ย้อนกลับ | ย่อเต็มจอก่อน, ย้อนประวัติเพลงก่อน, ไม่ปิดโหมดเครื่องเล่นเอง |
 | WebView renderer ล้ม | แสดงข้อความและกดโหลดใหม่ได้ โดยคงโหมด Host |
@@ -44,3 +44,17 @@ in-app song search, renderer recovery, fullscreen Back behavior, and small-scree
 `PlayerNavigationTest` covers Thai query encoding and rejected non-HTTPS links.
 These tests do not execute Chromium media playback or native audio drivers; use the
 real-device table above to verify actual websites and microphone playback.
+## v0.2 regression coverage and device acceptance
+
+Portable `audio_playout_test.cpp` verifies ordering, duplicates, foreign sessions, sequence wrap,
+short loss concealment, long-gap recovery, and 60-second simulations with jitter and +/-1500 ppm clocks.
+`MicrophoneServiceTest` verifies foreground-before-capture, permission denial, notification Stop,
+CPU-lock cleanup, connection failure, manifest service type, and non-sticky restart behavior.
+The Activity regression verifies that a live microphone is retained on stop/start/destruction and
+that Mic mode does not force the screen on. Release-version tests cover semantic ordering and reruns.
+
+On real devices, connect Mic first, lock its screen for 10 and then 30 minutes, and verify audible
+continuous input at Host. Unlock without reconnecting. Stop from the notification and check that
+microphone access and notification disappear. Repeat with two microphones, denied notification
+permission, revoked microphone access, Wi-Fi loss, USB removal, and Bluetooth playback. Compare
+wired/USB against Bluetooth and record observed interruptions and actual acoustic latency.

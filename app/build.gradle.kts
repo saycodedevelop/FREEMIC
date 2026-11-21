@@ -2,16 +2,29 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
 }
+val distributionVersion = providers.gradleProperty("releaseVersionName").orElse(providers.gradleProperty("appVersion")).get()
+val versionParts = distributionVersion.split('.').map { it.toInt() }
+val distributionCode = versionParts[0] * 1_000_000 + versionParts[1] * 1000 + versionParts[2]
 android {
     namespace = "com.karaokelink"
     compileSdk = 35
     ndkVersion = "27.0.12077973"
+    val releaseKey = System.getenv("KARAOKELINK_KEYSTORE_PATH")
+    if (!releaseKey.isNullOrBlank()) {
+        val distribution = signingConfigs.create("distribution") {
+            storeFile = file(releaseKey)
+            storePassword = System.getenv("KARAOKELINK_KEYSTORE_PASSWORD")
+            keyAlias = System.getenv("KARAOKELINK_KEY_ALIAS")
+            keyPassword = System.getenv("KARAOKELINK_KEY_PASSWORD")
+        }
+        buildTypes.getByName("release").signingConfig = distribution
+    }
     defaultConfig {
         applicationId = "com.karaokelink"
         minSdk = 28
         targetSdk = 35
-        versionCode = providers.gradleProperty("releaseVersionCode").orNull?.toInt() ?: 1
-        versionName = providers.gradleProperty("releaseVersionName").orNull ?: "0.1.0"
+        versionCode = providers.gradleProperty("releaseVersionCode").orNull?.toInt() ?: distributionCode
+        versionName = distributionVersion
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64") }
         externalNativeBuild { cmake { arguments += "-DANDROID_STL=c++_shared"; cppFlags += listOf("-std=c++17", "-Wall", "-Wextra") } }
     }

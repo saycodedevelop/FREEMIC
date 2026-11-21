@@ -1,6 +1,7 @@
 package com.karaokelink.data
 
 import android.content.Context
+import com.karaokelink.service.MicrophoneService
 import android.net.wifi.WifiManager
 import android.os.SystemClock
 import com.karaokelink.core.audio.NativeAudio
@@ -14,6 +15,12 @@ import java.security.SecureRandom
 
 /** Session transitions, transport events and JNI lifecycle all run on Main. */
 class AndroidSessionRepository(context: Context) : SessionRepository {
+    private val appContext = context.applicationContext
+    private var backgroundRequested = false
+    override val continuesInBackground: Boolean get() = backgroundRequested
+    private fun stopBackgroundMicrophone() {
+        if (backgroundRequested) { backgroundRequested = false; MicrophoneService.stop(appContext) }
+    }
     private val mutable = MutableStateFlow(SessionState())
     override val state = mutable.asStateFlow()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -74,7 +81,16 @@ class AndroidSessionRepository(context: Context) : SessionRepository {
         if (parts.size != 4 || parts.any { part -> part.isEmpty() || part.any { !it.isDigit() } || part.toIntOrNull() !in 0..255 }) {
             mutable.update { it.copy(status = "กรุณากรอก IPv4 เช่น 192.168.1.10") }; return
         }
-        disconnectMic()
+        if (!backgroundRequested || !MicrophoneService.running) {
+            backgroundRequested = true
+            try { MicrophoneService.start(appContext, ip.trim()) }
+            catch (_: RuntimeException) {
+                backgroundRequested = false
+                mutable.update { it.copy(status = "เปิดไมค์ปิดจอไม่ได้ กรุณาเปิดแอปและอนุญาตไมโครโฟนแล้วลองใหม่") }
+            }
+            return
+        }
+        disconnectMic(false)
         target = InetAddress.getByAddress(parts.map { it.toInt().toByte() }.toByteArray()) as Inet4Address
         nonce = java.lang.Long.toUnsignedString(random.nextLong(), 16)
         lastConnect = now(); lastReply = now()
@@ -114,11 +130,11 @@ class AndroidSessionRepository(context: Context) : SessionRepository {
                         mutable.update { it.copy(status = "ส่งเสียงไปยัง ${ip.hostAddress}", peers = 1) }
                     } else {
                         lan.command("KL1 BYE $id", ip)
-                        target = null
+                        target = null; stopBackgroundMicrophone()
                         mutable.update { it.copy(status = "เปิดไมค์ไม่ได้ ตรวจสิทธิ์หรืออุปกรณ์เสียง") }
                     }
                 }
-                "FULL" -> if (p[2] == nonce) { target = null; mutable.update { it.copy(status = "Host มีไมค์ครบ 2 เครื่องแล้ว") } }
+                "FULL" -> if (p[2] == nonce) { disconnectMic(); mutable.update { it.copy(peers = 0, rttMs = null, status = "Host มีไมค์ครบ 2 เครื่องแล้ว") } }
                 "PONG" -> if (p.size == 4 && p[2].toIntOrNull() == session && p[3] == pendingPing) {
                     lastReply = now()
                     mutable.update { it.copy(rttMs = now() - (p[3].toLongOrNull() ?: now())) }
@@ -137,16 +153,28 @@ class AndroidSessionRepository(context: Context) : SessionRepository {
             } else if (time - lastConnect > 500) { lastConnect = time; sendConnect() }
         }
         val m = native.metrics()
+        if (backgroundRequested && m[3] != 0f) {
+            disconnectMic()
+            mutable.update { it.copy(peers = 0, engineError = true, status = "อุปกรณ์ไมค์หยุดทำงาน กรุณาเปิดแอปแล้วเชื่อมต่อใหม่") }
+            return
+        }
         mutable.update { it.copy(hosts = it.hosts.filter { h -> time - h.seenAt < 5000 },
             vu = m[0], underruns = m[1].toInt(), queuedMs = m[2].toInt(),
             peers = if (it.mode == Mode.HOST) peers.size else if (session != 0) 1 else 0,
             engineError = m[3] != 0f) }
     }
-    private fun disconnectMic() {
+    private fun disconnectMic(stopService: Boolean = true) {
         if (session != 0) target?.let { lan.command("KL1 BYE $session", it) }
         native.stop(); target = null; session = 0
+        if (stopService) {
+            stopBackgroundMicrophone()
+            timer?.cancel(); timer = null
+            lan.stop()
+            lock?.let { if (it.isHeld) it.release() }; lock = null
+        }
     }
     private fun reset() {
+        stopBackgroundMicrophone()
         generation++; timer?.cancel(); timer = null
         if (session != 0) target?.let { lan.command("KL1 BYE $session", it) }
         lan.stop(); native.stop(); peers.clear(); target = null; session = 0
@@ -164,7 +192,7 @@ class AndroidSessionRepository(context: Context) : SessionRepository {
     override suspend fun pause() {
         val mode = state.value.mode
         reset()
-        mutable.value = SessionState(mode = mode, status = "พักการเชื่อมต่อเมื่อออกจากแอป")
+        mutable.value = SessionState(mode = mode, status = if (mode == Mode.MIC) "หยุดส่งเสียงไมค์แล้ว เลือกเครื่องเล่นเพื่อเชื่อมต่อใหม่" else "พักการเชื่อมต่อเมื่อออกจากแอป")
     }
     override fun destroy() { reset(); scope.cancel() }
 }

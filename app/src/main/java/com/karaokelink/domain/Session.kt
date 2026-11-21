@@ -16,13 +16,14 @@ data class SessionState(
     val engineError: Boolean = false
 )
 data class MicEffects(
-    val gain: Float = 1f, val gate: Float = 0.006f,
+    val gain: Float = 1f, val gate: Float = 0f,
     val echoMs: Float = 140f, val feedback: Float = 0.2f,
     val echoMix: Float = 0f, val reverb: Float = 0f,
     val low: Float = 1f, val mid: Float = 1f, val high: Float = 1f
 )
 interface SessionRepository {
     val state: StateFlow<SessionState>
+    val continuesInBackground: Boolean get() = false
     suspend fun select(mode: Mode)
     suspend fun connect(ip: String)
     fun effects(value: MicEffects)

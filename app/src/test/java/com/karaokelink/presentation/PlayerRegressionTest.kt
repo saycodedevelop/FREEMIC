@@ -31,7 +31,11 @@ class PlayerRegressionTest {
     class FakeRepository : SessionRepository {
         override val state = MutableStateFlow(SessionState())
         var pauses = 0
-        override suspend fun select(mode: Mode) { state.value = SessionState(mode = mode, status = "พร้อม") }
+        var background = false
+        var selections = 0
+        var destructions = 0
+        override val continuesInBackground: Boolean get() = background
+        override suspend fun select(mode: Mode) { selections++; state.value = SessionState(mode = mode, status = "พร้อม") }
         override suspend fun connect(ip: String) {}
         override fun effects(value: MicEffects) {}
         override fun hostMix(gain: Float, delayMs: Int) {}
@@ -39,7 +43,7 @@ class PlayerRegressionTest {
         override suspend fun outputDevice(id: Int) {}
         override suspend fun close() { state.value = SessionState() }
         override suspend fun pause() { pauses++; state.value = state.value.copy(peers = 0) }
-        override fun destroy() {}
+        override fun destroy() { destructions++ }
     }
     private fun all(view: View): List<View> = listOf(view) + if (view is ViewGroup)
         (0 until view.childCount).flatMap { all(view.getChildAt(it)) } else emptyList()
@@ -181,4 +185,20 @@ class PlayerRegressionTest {
         assertEquals(Mode.HOST, restored.fake.state.value.mode)
         assertEquals("https://example.com/song", shadowOf(browser(restored)).lastLoadedUrl)
         controller.pause().stop().destroy()
+    }
+    @Test fun screenOffAndActivityDestructionKeepActiveMicrophoneAlive() {
+        val controller = Robolectric.buildActivity(TestActivity::class.java).setup()
+        val activity = controller.get()
+        activity.fake.state.value = SessionState(mode = Mode.MIC, peers = 1)
+        activity.fake.background = true
+        shadowOf(Looper.getMainLooper()).idle()
+        val selections = activity.fake.selections
+        assertEquals(0, activity.window.attributes.flags and android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        controller.pause().stop()
+        assertEquals(0, activity.fake.pauses)
+        controller.start().resume().visible()
+        assertEquals(selections, activity.fake.selections)
+        assertEquals(1, activity.fake.state.value.peers)
+        controller.pause().stop().destroy()
+        assertEquals(0, activity.fake.destructions)
     }}

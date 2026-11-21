@@ -10,3 +10,7 @@ local.properties
 .env.*
 !.env.example
 .kotlin/
+
+.signing/
+__pycache__/
+*.pyc

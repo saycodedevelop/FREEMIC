@@ -1,4 +1,4 @@
-name: Android checks and automatic prerelease
+name: KaraokeLink Release
 on:
   push:
     branches: [main]
@@ -9,76 +9,122 @@ permissions:
   contents: read
 
 concurrency:
-  group: android-${{ github.ref }}
+  group: karaoke-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
+    name: Android validation and signed APK
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Select release version
+        id: version
+        run: python3 scripts/release_version.py >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
         with:
           packages: platform-tools
           log-accepted-android-sdk-licenses: false
-      - uses: gradle/actions/setup-gradle@v4
-      - name: Install native build tools
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+        with:
+          cache-provider: basic
+      - name: Install Android build tools
         run: sdkmanager "platforms;android-35" "build-tools;35.0.0" "ndk;27.0.12077973" "cmake;3.22.1"
       - run: chmod +x gradlew
-      - name: Build APK, lint, and test player flows
-        run: ./gradlew :app:assembleDebug :app:lintDebug :app:testDebugUnitTest -PreleaseVersionCode="$GITHUB_RUN_NUMBER" -PreleaseVersionName="0.1.0-dev.$GITHUB_RUN_NUMBER" --no-daemon
-      - uses: actions/upload-artifact@v4
+      - name: Build and validate Android app
+        run: ./gradlew :app:assembleDebug :app:lintDebug :app:testDebugUnitTest --no-daemon
+      - name: Build signed release
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KARAOKELINK_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KARAOKELINK_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KARAOKELINK_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          VERSION: ${{ steps.version.outputs.version }}
+          VERSION_CODE: ${{ steps.version.outputs.version_code }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$ANDROID_KEYSTORE_BASE64"
+          umask 077
+          export KARAOKELINK_KEYSTORE_PATH="$RUNNER_TEMP/karaokelink-release.p12"
+          trap 'rm -f "$KARAOKELINK_KEYSTORE_PATH"' EXIT
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$KARAOKELINK_KEYSTORE_PATH"
+          ./gradlew :app:assembleRelease :app:lintRelease -PreleaseVersionName="$VERSION" -PreleaseVersionCode="$VERSION_CODE" --no-daemon
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose app/build/outputs/apk/release/app-release.apk
+          mkdir -p release
+          cp app/build/outputs/apk/release/app-release.apk "release/KaraokeLink-$VERSION.apk"
+          (cd release && sha256sum "KaraokeLink-$VERSION.apk" > SHA256SUMS.txt)
+          python3 scripts/release_notes.py "$VERSION" > release/RELEASE_NOTES.md
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         with:
-          name: KaraokeLink-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: KaraokeLink-${{ steps.version.outputs.version }}
+          path: release/
           if-no-files-found: error
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: validation-reports
           path: |
-            app/build/reports/lint-results-debug.*
+            app/build/reports/lint-results-*
             app/build/reports/tests/testDebugUnitTest/
             app/build/test-results/testDebugUnitTest/*.xml
           if-no-files-found: ignore
-  portable-audio:
+
+  audio:
+    name: Audio transport and release policy tests
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: python3 -m unittest discover -s scripts -p 'test_*.py'
       - run: g++ -std=c++17 -Wall -Wextra -Werror -pthread -fsanitize=address,undefined -Iapp/src/main/cpp tests/audio_core_test.cpp -o /tmp/audio-core-test
       - run: /tmp/audio-core-test
-  release:
+      - run: g++ -std=c++17 -Wall -Wextra -Werror -pthread -fsanitize=address,undefined -Iapp/src/main/cpp tests/audio_playout_test.cpp -o /tmp/audio-playout-test
+      - run: /tmp/audio-playout-test
+
+  publish:
+    name: Publish KaraokeLink release
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    needs: [build, portable-audio]
+    needs: [build, audio]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: KaraokeLink-debug
+          name: KaraokeLink-${{ needs.build.outputs.version }}
           path: release
-      - name: Publish tested preview APK
+      - name: Publish verified APK
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ needs.build.outputs.version }}
+          TAG: ${{ needs.build.outputs.tag }}
         shell: bash
         run: |
           set -euo pipefail
-          tag="preview-${GITHUB_RUN_NUMBER}"
-          apk="KaraokeLink-${tag}.apk"
-          mv release/app-debug.apk "release/$apk"
-          (cd release && sha256sum "$apk" > SHA256SUMS.txt)
-          printf '%s\n' 'Automated development preview. Debug-signed APK for testing on Android 9 or newer.' 'Android build/lint, player regression tests, and portable audio tests passed. Real-device audio testing is still required.' 'Preview signing keys can change between builds; an uninstall may be needed before installing a later preview.' > release-notes.txt
-          if gh release view "$tag" >/dev/null 2>&1; then
-            gh release upload "$tag" "release/$apk" release/SHA256SUMS.txt --clobber
+          (cd release && sha256sum --check SHA256SUMS.txt)
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            published_commit=$(gh api "repos/$GH_REPO/commits/$TAG" --jq .sha)
+            test "$published_commit" = "$GITHUB_SHA"
+            if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = true ]; then
+              gh release upload "$TAG" "release/KaraokeLink-$VERSION.apk" release/SHA256SUMS.txt --clobber
+              gh release edit "$TAG" --draft=false --latest --notes-file release/RELEASE_NOTES.md
+            fi
           else
-            gh release create "$tag" "release/$apk" release/SHA256SUMS.txt --target "$GITHUB_SHA" --title "KaraokeLink $tag" --notes-file release-notes.txt --prerelease
+            gh release create "$TAG" "release/KaraokeLink-$VERSION.apk" release/SHA256SUMS.txt --target "$GITHUB_SHA" --title "KaraokeLink v$VERSION" --notes-file release/RELEASE_NOTES.md --latest
           fi

@@ -25,6 +25,7 @@ import android.view.inputmethod.InputMethodManager
 import android.webkit.*
 import android.widget.*
 import com.karaokelink.data.AndroidSessionRepository
+import com.karaokelink.data.SessionRuntime
 import com.karaokelink.domain.*
 import kotlinx.coroutines.*
 import java.net.NetworkInterface
@@ -62,7 +63,7 @@ open class MainActivity : Activity() {
     private val muted = Color.rgb(171, 187, 207)
     private val audio by lazy { getSystemService(AudioManager::class.java) }
 
-    protected open fun createRepository(): SessionRepository = AndroidSessionRepository(applicationContext)
+    protected open fun createRepository(): SessionRepository = SessionRuntime.get(applicationContext)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -97,7 +98,7 @@ open class MainActivity : Activity() {
         val mode = firstMode ?: repository.state.value.mode
         firstMode = null
         // Returning from a browser or another app resumes the role, not the Home screen.
-        ui.launch { repository.select(mode) }
+        if (!repository.continuesInBackground) ui.launch { repository.select(mode) }
         web?.onResume()
     }
 
@@ -110,7 +111,7 @@ open class MainActivity : Activity() {
         playerFrame = null
         pageNotice = null
         pageProgress = null
-        if (mode == Mode.HOME) window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        if (mode != Mode.HOST) window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         else window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         stage = FrameLayout(this).apply { setBackgroundColor(screenColor) }
         root = column().apply { setPadding(dp(16), dp(10), dp(16), dp(12)) }
@@ -162,7 +163,7 @@ open class MainActivity : Activity() {
         text(microphone, "2  เครื่องไมโครโฟน", 21f)
         text(microphone, "เลือกเครื่องเล่น แล้วใช้มือถือเครื่องนี้ร้องเพลง", 15f, muted)
         button(microphone, "ใช้เครื่องนี้เป็นไมค์") { chooseMic(null) }
-        text(body, "แนะนำลำโพงแบบสายหรือ USB เพื่อลดเสียงหน่วง\nแอปจะพักไมค์เมื่อสลับแอปหรือปิดหน้าจอ", 13f, muted)
+        text(body, "แนะนำลำโพงแบบสายหรือ USB เพื่อลดเสียงหน่วง\nเชื่อมต่อไมค์แล้วปิดหน้าจอร้องต่อได้ • มีปุ่มหยุดในการแจ้งเตือน", 13f, muted)
     }
 
     private fun discovery(parent: LinearLayout) {
@@ -188,6 +189,11 @@ open class MainActivity : Activity() {
             pendingMic = true
             pendingIp = ip
             requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 10)
+        } else if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED &&
+            !getPreferences(MODE_PRIVATE).getBoolean("notificationAsked", false)) {
+            getPreferences(MODE_PRIVATE).edit().putBoolean("notificationAsked", true).apply()
+            pendingMic = true; pendingIp = ip
+            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 12)
         } else ui.launch {
             if (repository.state.value.mode != Mode.MIC) repository.select(Mode.MIC)
             ip?.let { repository.connect(it) }
@@ -198,8 +204,14 @@ open class MainActivity : Activity() {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == 10 && pendingMic) {
             pendingMic = false
-            if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) chooseMic(pendingIp)
+            val ip = pendingIp
+            pendingIp = null
+            if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) chooseMic(ip)
             else toast("ต้องอนุญาตไมโครโฟนเพื่อส่งเสียง")
+        }
+        if (requestCode == 12 && pendingMic) {
+            pendingMic = false
+            chooseMic(pendingIp)
             pendingIp = null
         }
         if (requestCode == 11 && grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) pickOutput(true)
@@ -207,6 +219,8 @@ open class MainActivity : Activity() {
 
     private fun mic() {
         discovery(body)
+        text(body, "เชื่อมต่อแล้วปิดหน้าจอร้องต่อได้\nหยุดได้จากปุ่มด้านล่างหรือการแจ้งเตือน", 14f, accent)
+        button(body, "หยุดส่งเสียงไมค์", false) { ui.launch { repository.select(Mode.MIC) } }
         text(body, "ระดับเสียงร้อง", 21f)
         slider(body, "ความดังไมค์", 0f, 4f, fx.gain) { fx = fx.copy(gain = it); repository.effects(fx) }
         slider(body, "เสียงก้อง", 0f, 1f, fx.echoMix) { fx = fx.copy(echoMix = it); repository.effects(fx) }
@@ -220,7 +234,7 @@ open class MainActivity : Activity() {
                 toast("เลือกแล้ว มีผลเมื่อเชื่อมต่อครั้งถัดไป")
             }.show()
         }
-        slider(advanced, "ลดเสียงรบกวน", 0f, 0.08f, fx.gate) { fx = fx.copy(gate = it); repository.effects(fx) }
+        slider(advanced, "ลดเสียงรบกวน (0 = ปิด)", 0f, 0.08f, fx.gate) { fx = fx.copy(gate = it); repository.effects(fx) }
         slider(advanced, "ระยะเสียงก้อง (ms)", 5f, 700f, fx.echoMs) { fx = fx.copy(echoMs = it); repository.effects(fx) }
         slider(advanced, "เสียงก้องซ้ำ", 0f, 0.85f, fx.feedback) { fx = fx.copy(feedback = it); repository.effects(fx) }
         slider(advanced, "เสียงทุ้ม", 0f, 2f, fx.low) { fx = fx.copy(low = it); repository.effects(fx) }
@@ -510,11 +524,13 @@ open class MainActivity : Activity() {
         web?.evaluateJavascript("document.querySelectorAll('audio,video').forEach(function(x){x.pause();});", null)
         web?.onPause()
         // Stop capture and sockets in background while retaining the screen and browser.
-        ui.launch { repository.pause() }
+        if (!repository.continuesInBackground) ui.launch { repository.pause() }
         super.onStop()
     }
     override fun onDestroy() {
         hideFullscreen(); destroyBrowser()
-        repository.destroy(); ui.cancel(); super.onDestroy()
+        if (repository is AndroidSessionRepository) SessionRuntime.release(repository as AndroidSessionRepository)
+        else if (!repository.continuesInBackground) repository.destroy()
+        ui.cancel(); super.onDestroy()
     }
 }

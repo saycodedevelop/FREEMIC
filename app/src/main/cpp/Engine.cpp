@@ -1,8 +1,10 @@
 #include "AudioCore.h"
+#include "PlayoutBuffer.h"
 #include <oboe/Oboe.h>
 #include <jni.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
+#include <sys/resource.h>
 #include <poll.h>
 #include <unistd.h>
 #include <chrono>
@@ -15,15 +17,9 @@ static_assert(std::atomic<float>::is_always_lock_free, "audio controls must be l
 class Engine final : public oboe::AudioStreamDataCallback, public oboe::AudioStreamErrorCallback {
     struct Peer {
         std::atomic<uint32_t> id{0}, ip{0};
-        Queue<32> queue;
-        // network worker owns sequence tracking
-        uint32_t receivedId=0, expected=0;
-        bool hasSequence=false;
-        // audio callback owns playout tracking
-        Block playing{};
+        Queue<64> queue;
+        PlayoutBuffer playout;
         uint32_t playingId=0;
-        int offset=Frames;
-        bool primed=false;
     };
     std::array<Peer,2> peers;
     Queue<32> captured;
@@ -62,10 +58,11 @@ class Engine final : public oboe::AudioStreamDataCallback, public oboe::AudioStr
             result=builder.openStream(stream);
         }
         if (result != oboe::Result::OK || !stream || stream->getSampleRate()!=Rate) return false;
-        stream->setBufferSizeInFrames(stream->getFramesPerBurst()*2);
+        stream->setBufferSizeInFrames(stream->getFramesPerBurst()*(mic ? 2 : 4));
         return stream->requestStart()==oboe::Result::OK;
     }
     void networkLoop() {
+        setpriority(PRIO_PROCESS, 0, -16); // Best effort for the audio network worker.
         std::array<uint8_t,2048> bytes{};
         while (running.load(std::memory_order_acquire)) {
             if (mic) {
@@ -88,40 +85,21 @@ class Engine final : public oboe::AudioStreamDataCallback, public oboe::AudioStr
                 for (auto& peer:peers) {
                     auto id=peer.id.load(std::memory_order_acquire);
                     if (!id || id!=block.session || peer.ip.load()!=from.sin_addr.s_addr) continue;
-                    if (peer.receivedId!=id) {
-                        peer.receivedId=id; peer.hasSequence=false;
-                    }
-                    if (peer.hasSequence) {
-                        const int32_t gap=static_cast<int32_t>(block.sequence-peer.expected);
-                        if (gap<0) break; // duplicates / late datagrams
-                        // Bounded concealment; do not fill huge gaps or grow latency indefinitely.
-                        Block silence; silence.session=id;
-                        for (int i=0; i<std::min(gap,3); ++i) peer.queue.push(silence);
-                    }
-                    peer.expected=block.sequence+1; peer.hasSequence=true;
-                    peer.queue.push(block); // full queue drops newest; consumer trims backlog
+                    peer.queue.push(block); // Reorder and conceal on the audio consumer.
                     break;
                 }
             }
         }
     }
-    float readPeer(Peer& p) {
+    void preparePeer(Peer& p) {
         const auto id=p.id.load(std::memory_order_acquire);
-        if (!id) { p.primed=false; p.offset=Frames; return 0; }
-        if (p.playingId!=id) { p.playingId=id; p.primed=false; p.offset=Frames; }
-        if (p.offset==Frames) {
-            if (!p.primed) {
-                if (p.queue.size()<3) return 0; // 15 ms initial target
-                p.primed=true;
-            }
-            Block next;
-            while (p.queue.size()>7) p.queue.pop(next); // receiver owns trimming
-            bool found=false;
-            while (p.queue.pop(next)) { if (next.session==id) { found=true; break; } }
-            if (!found) { p.primed=false; underruns.fetch_add(1); return 0; }
-            p.playing=next; p.offset=0;
-        }
-        return p.playing.samples[p.offset++];
+        if (p.playingId!=id) { p.playingId=id; p.playout.reset(id); }
+        Block block;
+        int budget=64;
+        while (budget-- && p.queue.pop(block)) if (id && block.session==id) p.playout.push(block);
+    }
+    float readPeer(Peer& p) {
+        return p.playingId ? p.playout.read() : 0.f;
     }
 public:
     ~Engine() { stop(); }
@@ -129,7 +107,7 @@ public:
         mic=isMic; session=id; capture.session=id;
         socketFd=socket(AF_INET,SOCK_DGRAM,0);
         if (socketFd<0) return false;
-        int buffer=16384;
+        int buffer=262144;
         setsockopt(socketFd,SOL_SOCKET,SO_RCVBUF,&buffer,sizeof(buffer));
         if (mic) {
             destination.sin_family=AF_INET; destination.sin_port=htons(AudioPort);
@@ -174,6 +152,7 @@ public:
                 }
             }
         } else {
+            for (auto& p:peers) { preparePeer(p); p.playout.reserveForCallback(frames); }
             const size_t delay=static_cast<size_t>(delayMs.load())*48;
             const float gain=hostGain.load();
             for (int i=0;i<frames;++i) {
@@ -186,9 +165,14 @@ public:
                 delayPos=(delayPos+1)%delayLine.size();
                 samples[i]=std::clamp(x,-1.f,1.f); peak=std::max(peak,std::abs(samples[i]));
             }
-            uint32_t queued=0;
-            for (auto& p:peers) if (p.id.load()!=0) queued=std::max(queued,p.queue.size());
-            queuedMs.store(queued*5);
+            int queued=0;
+            uint32_t missed=0;
+            for (auto& p:peers) if (p.playingId) {
+                queued=std::max(queued,p.playout.queuedFrames());
+                missed+=p.playout.underruns();
+            }
+            queuedMs.store(queued/48);
+            underruns.store(static_cast<int>(missed));
         }
         vu.store(peak);
         return oboe::DataCallbackResult::Continue;
