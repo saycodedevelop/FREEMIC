@@ -27,6 +27,7 @@ class PlayerRegressionTest {
     class TestActivity : MainActivity() {
         val fake = FakeRepository()
         override fun createRepository(): SessionRepository = fake
+        override fun automaticWelcome() = false
     }
     class FakeRepository : SessionRepository {
         override val state = MutableStateFlow(SessionState())
@@ -35,7 +36,7 @@ class PlayerRegressionTest {
         var selections = 0
         var destructions = 0
         override val continuesInBackground: Boolean get() = background
-        override suspend fun select(mode: Mode) { selections++; state.value = SessionState(mode = mode, status = "พร้อม") }
+        override suspend fun select(mode: Mode) { selections++; background = false; state.value = SessionState(mode = mode, status = "พร้อม") }
         override suspend fun connect(ip: String) {}
         override fun effects(value: MicEffects) {}
         override fun hostMix(gain: Float, delayMs: Int) {}
@@ -201,4 +202,5 @@ class PlayerRegressionTest {
         assertEquals(1, activity.fake.state.value.peers)
         controller.pause().stop().destroy()
         assertEquals(0, activity.fake.destructions)
-    }}
+    }
+}

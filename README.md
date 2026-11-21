@@ -8,7 +8,19 @@
 
 **[ดาวน์โหลดรุ่นล่าสุด](https://github.com/saycodedevelop/FREEMIC/releases/latest)** · [ประวัติการเปลี่ยนแปลง](CHANGELOG.md)
 
+## หน้าจอใหม่
+
+<table><tr>
+<td><img src="docs/screenshots/home.png" width="230" alt="หน้าเลือกเครื่องเล่นและไมค์"></td>
+<td><img src="docs/screenshots/microphone.png" width="230" alt="หน้าไมโครโฟนขณะเชื่อมต่อ"></td>
+<td><img src="docs/screenshots/getting-started.png" width="230" alt="คู่มือเริ่มใช้งานสามขั้นตอน"></td>
+</tr></table>
+
+ภาพจากการเรนเดอร์ Android ด้วยสถานะจำลอง · [คู่มือผู้ใช้ใหม่](docs/USER_GUIDE.md)
+
 ## เริ่มใช้งาน
+
+ครั้งแรกแอปจะแนะนำสามขั้นตอน ข้ามได้ และเปิดซ้ำจากปุ่ม **?** ทุกหน้า
 
 1. ติดตั้ง APK บนมือถือทั้งสองเครื่อง และต่อ Wi-Fi เดียวกัน
 2. เครื่องที่ต่อลำโพง: เลือก **เปิดเครื่องเล่นเพลง** แล้วค้นหาชื่อเพลงหรือวางลิงก์ HTTPS

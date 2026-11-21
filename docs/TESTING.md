@@ -58,3 +58,12 @@ continuous input at Host. Unlock without reconnecting. Stop from the notificatio
 microphone access and notification disappear. Repeat with two microphones, denied notification
 permission, revoked microphone access, Wi-Fi loss, USB removal, and Bluetooth playback. Compare
 wired/USB against Bluetooth and record observed interruptions and actual acoustic latency.
+## v0.3 UI and onboarding
+
+`GettingStartedTest` covers first-run completion, remembered Skip, replaying help during playback,
+and showing/hiding microphone controls without stopping a live session. `SessionPresenterTest`
+checks that connection errors and background microphone readiness use accurate user-facing language.
+`UiPreviewTest` uses native Android/Skia rendering to produce Home, microphone, and onboarding PNGs
+in `app/build/reports/ui-preview`; it also verifies visible role choices and minimum touch height.
+Review Thai text, large font settings, portrait/landscape player area, guide scrolling, and TalkBack
+headings/state announcements on a real device. UI previews use fake session state and do not play audio.

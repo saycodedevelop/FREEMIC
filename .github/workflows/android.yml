@@ -79,6 +79,7 @@ jobs:
           path: |
             app/build/reports/lint-results-*
             app/build/reports/tests/testDebugUnitTest/
+            app/build/reports/ui-preview/
             app/build/test-results/testDebugUnitTest/*.xml
           if-no-files-found: ignore
 

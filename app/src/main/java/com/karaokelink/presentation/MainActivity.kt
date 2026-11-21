@@ -2,6 +2,9 @@ package com.karaokelink.presentation
 
 import android.Manifest
 import android.app.Activity
+import android.app.Dialog
+import android.text.TextUtils
+import com.karaokelink.R
 import android.app.AlertDialog
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -41,6 +44,16 @@ open class MainActivity : Activity() {
     private lateinit var status: TextView
     private lateinit var connection: TextView
     private lateinit var meter: ProgressBar
+    private var statusPanel: LinearLayout? = null
+    private var micConnectSection: LinearLayout? = null
+    private var micControlPanel: LinearLayout? = null
+    private var micLiveTitle: TextView? = null
+    private var micLiveHint: TextView? = null
+    private var micStopButton: Button? = null
+    private var changePlayerButton: Button? = null
+    private var discoveryExpanded = false
+    private var welcomeDialog: Dialog? = null
+    private var welcomeOffered = false
     private var hosts: LinearLayout? = null
     private var hostSignature = ""
     private var rendered: Mode? = null
@@ -58,12 +71,22 @@ open class MainActivity : Activity() {
     private var micVolume = 1f
     private var musicVolume = 1f
     private var delayMs = 0
-    private val accent = Color.rgb(73, 222, 187)
-    private val screenColor = Color.rgb(14, 23, 38)
-    private val muted = Color.rgb(171, 187, 207)
+    private val accent = AppUi.mint
+    private val screenColor = AppUi.background
+    private val muted = AppUi.muted
     private val audio by lazy { getSystemService(AudioManager::class.java) }
 
     protected open fun createRepository(): SessionRepository = SessionRuntime.get(applicationContext)
+
+    protected open fun automaticWelcome(): Boolean = !getSharedPreferences("karaokelink-ui", MODE_PRIVATE).getBoolean("welcomeComplete", false)
+
+    private fun showGettingStarted() {
+        if (welcomeDialog?.isShowing == true) return
+        getSystemService(InputMethodManager::class.java).hideSoftInputFromWindow(currentFocus?.windowToken, 0)
+        welcomeDialog = GettingStarted.show(this) {
+            getSharedPreferences("karaokelink-ui", MODE_PRIVATE).edit().putBoolean("welcomeComplete", true).apply()
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -73,20 +96,13 @@ open class MainActivity : Activity() {
         ui.launch {
             repository.state.collect { state ->
                 if (rendered != state.mode) render(state.mode)
-                status.text = if (state.engineError) "อุปกรณ์เสียงขัดข้อง • เปิดตั้งค่าเสียงเพื่อลองเชื่อมต่อใหม่" else state.status
-                connection.text = when (state.mode) {
-                    Mode.HOST -> "ไมค์ ${state.peers}/2 เครื่อง  •  IP ${localIps()}  ⧉"
-                    Mode.MIC -> if (state.peers > 0) "เชื่อมต่อแล้ว • พร้อมร้องเพลง" else "เลือกเครื่องเล่นจากรายการด้านล่าง"
-                    Mode.HOME -> "ต่อ Wi-Fi เดียวกัน แล้วเลือกหน้าที่ของเครื่องนี้"
-                }
-                meter.progress = (state.vu.coerceIn(0f, 1f) * 1000).toInt()
+                updateSessionUi(state)
                 val signature = state.hosts.joinToString { "${it.ip}:${it.name}" }
                 if (signature != hostSignature) {
                     hostSignature = signature
                     hosts?.let { list ->
                         list.removeAllViews()
-                        if (state.hosts.isEmpty()) text(list, "ยังไม่พบเครื่องเล่น\nเปิดเครื่องเล่นอีกเครื่องและใช้ Wi-Fi เดียวกัน", 14f, muted)
-                        state.hosts.forEach { h -> button(list, "เชื่อมต่อ ${h.name}\n${h.ip}") { chooseMic(h.ip) } }
+                        renderHosts(list, state.hosts)
                     }
                 }
             }
@@ -103,17 +119,19 @@ open class MainActivity : Activity() {
     }
 
     private fun render(mode: Mode) {
-        hideFullscreen()
-        destroyBrowser()
+        hideFullscreen(); destroyBrowser()
         rendered = mode
-        hosts = null
-        hostSignature = "!"
-        playerFrame = null
-        pageNotice = null
-        pageProgress = null
+        hosts = null; hostSignature = "!"
+        playerFrame = null; pageNotice = null; pageProgress = null
+        statusPanel = null; micConnectSection = null; micControlPanel = null
+        micLiveTitle = null; micLiveHint = null; micStopButton = null; changePlayerButton = null
+        discoveryExpanded = false
         if (mode != Mode.HOST) window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         else window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        stage = FrameLayout(this).apply { setBackgroundColor(screenColor) }
+        stage = FrameLayout(this).apply {
+            background = GradientDrawable(GradientDrawable.Orientation.TL_BR,
+                intArrayOf(screenColor, Color.rgb(17, 23, 42)))
+        }
         root = column().apply { setPadding(dp(16), dp(10), dp(16), dp(12)) }
         stage.addView(root, FrameLayout.LayoutParams(-1, -1))
         stage.setOnApplyWindowInsetsListener { view, insets ->
@@ -127,63 +145,155 @@ open class MainActivity : Activity() {
             }
             insets
         }
-        setContentView(stage)
-        stage.requestApplyInsets()
-        val header = row(root)
-        text(header, "KaraokeLink", 23f, accent).layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
+        setContentView(stage); stage.requestApplyInsets()
+        val header = row(root).apply { minimumHeight = dp(52); tag = "app-header" }
+        val brand = column()
+        brand.addView(AppUi.label(this, "KaraokeLink", 20f, bold = true).apply { maxLines = 1; ellipsize = TextUtils.TruncateAt.END })
+        brand.addView(AppUi.label(this, when (mode) {
+            Mode.HOME -> "ร้องเพลงง่ายขึ้น ด้วยมือถือของคุณ"
+            Mode.HOST -> "เครื่องเล่นเพลง"
+            Mode.MIC -> "ไมโครโฟน"
+        }, 12f, muted).apply { maxLines = 1; ellipsize = TextUtils.TruncateAt.END })
+        header.addView(brand, LinearLayout.LayoutParams(0, -2, 1f))
         if (mode != Mode.HOME) button(header, "หน้าแรก", false) { confirmHome() }
-        status = text(root, "พร้อมใช้งาน", 13f, muted)
-        connection = text(root, "", 13f, accent)
-        if (mode == Mode.HOST) connection.setOnClickListener {
-            getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("Host IP", localIps()))
-            toast("คัดลอก IP แล้ว")
+        header.addView(AppUi.iconButton(this, R.drawable.ic_help, "วิธีใช้งาน") { showGettingStarted() },
+            LinearLayout.LayoutParams(dp(48), dp(48)).apply { leftMargin = dp(8) })
+        statusPanel = column().apply {
+            background = AppUi.shape(this@MainActivity, radius = 16)
+            setPadding(dp(12), dp(9), dp(12), dp(9)); tag = "session-status"
+            visibility = if (mode == Mode.HOME) View.GONE else View.VISIBLE
+        }.also { root.addView(it, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8); bottomMargin = dp(8) }) }
+        status = AppUi.label(this, "", 14f, accent, true).also { statusPanel!!.addView(it) }
+        connection = AppUi.label(this, "", 12f, muted).apply {
+            maxLines = 2; ellipsize = TextUtils.TruncateAt.END; setPadding(0, dp(3), 0, 0)
+        }.also { statusPanel!!.addView(it) }
+        if (mode == Mode.HOST) {
+            statusPanel!!.contentDescription = "สถานะเครื่องเล่น แตะดูวิธีเชื่อมต่อไมค์"
+            statusPanel!!.setOnClickListener { showHostConnection() }
         }
         meter = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
-            max = 1000
-            progressTintList = ColorStateList.valueOf(accent)
+            max = 1000; progressTintList = ColorStateList.valueOf(accent)
+            progressBackgroundTintList = ColorStateList.valueOf(AppUi.border)
             contentDescription = "ระดับเสียงไมโครโฟน"
-            visibility = if (mode == Mode.HOME) View.GONE else View.VISIBLE
         }
-        root.addView(meter, LinearLayout.LayoutParams(-1, dp(5)))
         body = column()
         if (mode == Mode.HOST) root.addView(body, LinearLayout.LayoutParams(-1, 0, 1f))
-        else root.addView(ScrollView(this).apply { isFillViewport = true; addView(body) }, LinearLayout.LayoutParams(-1, 0, 1f))
+        else root.addView(ScrollView(this).apply { isFillViewport = true; clipToPadding = false; addView(body) }, LinearLayout.LayoutParams(-1, 0, 1f))
         when (mode) { Mode.HOME -> home(); Mode.MIC -> mic(); Mode.HOST -> host() }
         applyPlayerLayout()
+        if (mode == Mode.HOME && !welcomeOffered) stage.post {
+            if (rendered == Mode.HOME && !isFinishing && automaticWelcome()) {
+                welcomeOffered = true
+                showGettingStarted()
+            }
+        }
+    }
+
+    private fun updateSessionUi(state: SessionState) {
+        val copy = SessionPresenter.describe(state, repository.continuesInBackground)
+        val tint = when (copy.tone) { StatusTone.READY -> accent; StatusTone.WAITING -> AppUi.amber; StatusTone.ERROR -> AppUi.danger }
+        val title = "●  ${copy.title}"
+        if (status.text.toString() != title) status.text = title
+        status.contentDescription = copy.title
+        status.accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
+        status.setTextColor(tint)
+        if (state.mode == Mode.HOST) statusPanel?.contentDescription = "${copy.title}. ${copy.detail}"
+        connection.text = copy.detail
+        meter.progress = (state.vu.coerceIn(0f, 1f) * 1000).toInt()
+        if (state.mode == Mode.MIC) {
+            val live = state.peers > 0
+            micLiveTitle?.text = if (live) "พร้อมร้องเพลง" else "รอการเชื่อมต่อ"
+            micLiveHint?.text = if (live && repository.continuesInBackground) "ปิดหน้าจอได้ • เสียงไมค์ยังทำงาน" else if (live) "พูดใกล้ไมค์ แล้วดูระดับเสียงด้านล่าง" else "เลือกเครื่องเล่นด้านบน แล้วเริ่มร้องได้เลย"
+            micControlPanel?.visibility = if (live) View.VISIBLE else View.GONE
+            micConnectSection?.visibility = if (!live || discoveryExpanded) View.VISIBLE else View.GONE
+            micStopButton?.visibility = if (live || repository.continuesInBackground) View.VISIBLE else View.GONE
+            micStopButton?.text = if (live) "หยุดส่งเสียงไมค์" else "ยกเลิกการเชื่อมต่อ"
+            changePlayerButton?.visibility = if (live) View.VISIBLE else View.GONE
+            changePlayerButton?.text = if (discoveryExpanded) "ซ่อนรายการเครื่องเล่น" else "เปลี่ยนเครื่องเล่น"
+        }
     }
 
     private fun home() {
-        text(body, "พร้อมร้องเพลงแล้วหรือยัง?", 27f)
-        text(body, "ใช้เครื่องหนึ่งเปิดเพลง อีกเครื่องเป็นไมค์\nเริ่มจากเครื่องที่ต่อลำโพงก่อน", 16f, muted)
-        val player = card(body)
-        text(player, "1  เครื่องเปิดเพลง", 21f)
-        text(player, "ต่อเครื่องนี้เข้าลำโพง แล้วค้นหาเพลงที่ต้องการ", 15f, muted)
-        button(player, "เปิดเครื่องเล่นเพลง") { startHost() }
-        val microphone = card(body)
-        text(microphone, "2  เครื่องไมโครโฟน", 21f)
-        text(microphone, "เลือกเครื่องเล่น แล้วใช้มือถือเครื่องนี้ร้องเพลง", 15f, muted)
-        button(microphone, "ใช้เครื่องนี้เป็นไมค์") { chooseMic(null) }
-        text(body, "แนะนำลำโพงแบบสายหรือ USB เพื่อลดเสียงหน่วง\nเชื่อมต่อไมค์แล้วปิดหน้าจอร้องต่อได้ • มีปุ่มหยุดในการแจ้งเตือน", 13f, muted)
+        text(body, "เลือกหน้าที่ของเครื่องนี้", 27f)
+        text(body, "เครื่องหนึ่งเปิดเพลง อีกเครื่องใช้ร้อง\nเริ่มจากเครื่องที่ต่อลำโพงก่อน", 15f, muted)
+        val wifi = row(body).apply { setPadding(0, dp(6), 0, dp(4)) }
+        wifi.addView(AppUi.icon(this, R.drawable.ic_wifi, muted, 20))
+        AppUi.label(this, "ต่อมือถือทั้งสองเครื่องกับ Wi-Fi เดียวกัน", 12f, muted).also {
+            wifi.addView(it, LinearLayout.LayoutParams(0, -2, 1f).apply { leftMargin = dp(8) })
+        }
+        fun role(title: String, subtitle: String, step: String, icon: Int, tint: Int, actionLabel: String, action: () -> Unit) {
+            val panel = card(body).apply { background = AppUi.shape(this@MainActivity, stroke = Color.argb(115, Color.red(tint), Color.green(tint), Color.blue(tint))) }
+            val line = row(panel)
+            val tile = FrameLayout(this).apply { background = AppUi.shape(this@MainActivity, Color.argb(25, Color.red(tint), Color.green(tint), Color.blue(tint)), 14, null) }
+            tile.addView(AppUi.icon(this, icon, tint, 24), FrameLayout.LayoutParams(dp(24), dp(24), Gravity.CENTER))
+            line.addView(tile, LinearLayout.LayoutParams(dp(46), dp(46)).apply { rightMargin = dp(12) })
+            val words = column()
+            words.addView(AppUi.label(this, step, 11f, tint, true))
+            words.addView(AppUi.label(this, title, 19f, bold = true).apply { setPadding(0, dp(3), 0, 0) })
+            line.addView(words, LinearLayout.LayoutParams(0, -2, 1f))
+            text(panel, subtitle, 13f, muted)
+            button(panel, actionLabel, tint = tint, action = action)
+        }
+        role("เครื่องเล่นเพลง", "ต่อลำโพง เปิดเพลง และรับเสียงจากไมค์", "เครื่องที่ 1 • เริ่มที่นี่", R.drawable.ic_music, accent, "เปิดเครื่องเล่นเพลง") { startHost() }
+        role("เครื่องไมโครโฟน", "ใช้มือถืออีกเครื่องถือร้อง พร้อมปิดจอได้", "เครื่องที่ 2 • ใช้ร้องเพลง", R.drawable.ic_mic, AppUi.violet, "ใช้เครื่องนี้เป็นไมค์") { chooseMic(null) }
+        button(body, "ดูวิธีเริ่มใช้งาน 3 ขั้นตอน", false) { showGettingStarted() }
+        text(body, "สายหรือ USB เหมาะกับการร้องสด\nBluetooth อาจมีเสียงหน่วงตามอุปกรณ์", 12f, muted)
     }
 
     private fun discovery(parent: LinearLayout) {
-        text(parent, "เลือกเครื่องเล่น", 21f)
-        hosts = column().also { parent.addView(it) }
-        text(hosts!!, "กำลังค้นหาเครื่องเล่น…", 14f, muted)
-        val manual = expandable(parent, "หาไม่เจอ? เชื่อมต่อด้วย IP")
-        text(manual, "ดู IP บนหน้าเครื่องเล่น แล้วกรอกด้านล่าง", 14f, muted)
-        val ip = input(manual, "เช่น 192.168.1.10").apply {
-            inputType = android.text.InputType.TYPE_CLASS_PHONE
-        }
+        val section = card(parent)
+        micConnectSection = section
+        section.tag = "mic-discovery"
+        text(section, "1  เลือกเครื่องเล่น", 19f)
+        text(section, "เปิดเครื่องเล่นบนมือถืออีกเครื่องก่อน", 13f, muted)
+        hosts = column().also { section.addView(it) }
+        val manual = expandable(section, "เชื่อมต่อด้วย IP")
+        text(manual, "ดู IP โดยแตะสถานะบนหน้าเครื่องเล่น", 13f, muted)
+        val ip = input(manual, "เช่น 192.168.1.10").apply { inputType = android.text.InputType.TYPE_CLASS_PHONE }
         button(manual, "เชื่อมต่อ IP นี้") {
             val value = ip.text.toString().trim()
             val parts = value.split('.')
-            if (parts.size != 4 || parts.any { part -> part.isEmpty() || part.any { !it.isDigit() } || part.toIntOrNull() !in 0..255 }) {
-                ip.error = "กรุณากรอก IPv4 เช่น 192.168.1.10"
-            } else chooseMic(value)
+            if (parts.size != 4 || parts.any { part -> part.isEmpty() || part.any { !it.isDigit() } || part.toIntOrNull() !in 0..255 }) ip.error = "กรอก IP ให้ครบ เช่น 192.168.1.10"
+            else chooseMic(value)
         }
     }
 
+    private fun renderHosts(list: LinearLayout, found: List<Host>) {
+        if (found.isEmpty()) {
+            val empty = column().apply { setPadding(dp(12), dp(12), dp(12), dp(8)); background = AppUi.shape(this@MainActivity, screenColor, 14) }
+            list.addView(empty)
+            text(empty, "ยังไม่พบเครื่องเล่น", 16f)
+            text(empty, "ตรวจว่าทั้งสองเครื่องใช้ Wi-Fi เดียวกัน\nแล้วเปิดหน้าเครื่องเล่นค้างไว้ แอปค้นหาให้อัตโนมัติ", 13f, muted)
+            button(empty, "ค้นหาอีกครั้ง", false) { ui.launch { repository.select(Mode.MIC) } }
+            button(empty, "ช่วยเชื่อมต่อ", false) { showConnectionHelp() }
+        }
+        found.forEach { host ->
+            val entry = column().apply { setPadding(dp(10), dp(10), dp(10), dp(8)); background = AppUi.shape(this@MainActivity, screenColor, 14) }
+            list.addView(entry, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(8) })
+            text(entry, host.name, 16f)
+            text(entry, host.ip, 12f, muted)
+            button(entry, "เชื่อมต่อ ${host.name}", tint = AppUi.violet) { chooseMic(host.ip) }
+        }
+    }
+
+    private fun showConnectionHelp() {
+        AlertDialog.Builder(this).setTitle("หาเครื่องเล่นไม่เจอ?")
+            .setMessage("1. เปิด «เครื่องเล่นเพลง» บนมือถือที่ต่อลำโพง\n\n2. ต่อมือถือทั้งสองเครื่องกับ Wi-Fi เดียวกัน\n\n3. ถ้ายังไม่พบ แตะสถานะเครื่องเล่นเพื่อดู IP แล้วเลือก «เชื่อมต่อด้วย IP» บนเครื่องไมค์\n\nWi-Fi สำหรับแขกหรือ Hotspot บางรุ่นอาจไม่อนุญาตให้อุปกรณ์ติดต่อกัน")
+            .setPositiveButton("เข้าใจแล้ว", null).show()
+    }
+
+    private fun showHostConnection() {
+        val content = column().apply { setPadding(dp(20), dp(12), dp(20), dp(16)) }
+        text(content, "เชื่อมต่อไมค์จากอีกเครื่อง", 21f)
+        text(content, "1. ใช้ Wi-Fi เดียวกัน\n2. บนอีกเครื่อง แตะ «ใช้เครื่องนี้เป็นไมค์»\n3. เลือกชื่อเครื่องเล่นนี้จากรายการ", 15f, muted)
+        text(content, "ถ้าค้นหาไม่พบ ใช้ IP นี้", 13f, muted)
+        text(content, localIps(), 20f, accent).apply { setTextIsSelectable(true) }
+        button(content, "คัดลอก IP", false) {
+            getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("Host IP", localIps()))
+            toast("คัดลอก IP แล้ว")
+        }
+        AlertDialog.Builder(this).setView(content).setPositiveButton("เสร็จแล้ว", null).show()
+    }
     private fun chooseMic(ip: String?) {
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             pendingMic = true
@@ -219,14 +329,36 @@ open class MainActivity : Activity() {
 
     private fun mic() {
         discovery(body)
-        text(body, "เชื่อมต่อแล้วปิดหน้าจอร้องต่อได้\nหยุดได้จากปุ่มด้านล่างหรือการแจ้งเตือน", 14f, accent)
-        button(body, "หยุดส่งเสียงไมค์", false) { ui.launch { repository.select(Mode.MIC) } }
-        text(body, "ระดับเสียงร้อง", 21f)
-        slider(body, "ความดังไมค์", 0f, 4f, fx.gain) { fx = fx.copy(gain = it); repository.effects(fx) }
-        slider(body, "เสียงก้อง", 0f, 1f, fx.echoMix) { fx = fx.copy(echoMix = it); repository.effects(fx) }
-        slider(body, "เสียงสะท้อนห้อง", 0f, 1f, fx.reverb) { fx = fx.copy(reverb = it); repository.effects(fx) }
-        val advanced = expandable(body, "ตั้งค่าไมค์เพิ่มเติม")
-        button(advanced, "เลือกไมค์ในเครื่อง / สาย / USB", false) {
+        val live = card(body)
+        val hero = row(live)
+        hero.addView(AppUi.icon(this, R.drawable.ic_mic, AppUi.violet, 34), LinearLayout.LayoutParams(dp(34), dp(42)).apply { rightMargin = dp(12) })
+        val titles = column()
+        micLiveTitle = AppUi.label(this, "รอการเชื่อมต่อ", 21f, bold = true).also { titles.addView(it) }
+        micLiveHint = AppUi.label(this, "เลือกเครื่องเล่นก่อนเริ่มร้อง", 12f, muted).also { titles.addView(it) }
+        hero.addView(titles, LinearLayout.LayoutParams(0, -2, 1f))
+        text(live, "ระดับเสียงจากไมค์", 12f, muted)
+        meter.progressTintList = ColorStateList.valueOf(AppUi.violet)
+        live.addView(meter, LinearLayout.LayoutParams(-1, dp(12)).apply { topMargin = dp(4); bottomMargin = dp(12) })
+        micStopButton = button(live, "หยุดส่งเสียงไมค์", false, tint = AppUi.danger) { ui.launch { repository.select(Mode.MIC) } }
+        changePlayerButton = button(live, "เปลี่ยนเครื่องเล่น", false) {
+            discoveryExpanded = !discoveryExpanded
+            updateSessionUi(repository.state.value)
+        }
+        micControlPanel = card(body).also { controls ->
+            controls.tag = "mic-controls"
+            text(controls, "2  ปรับเสียงร้อง", 19f)
+            text(controls, "เริ่มจากความดัง แล้วค่อยเพิ่มเสียงก้อง", 13f, muted)
+            slider(controls, "ความดังไมค์", 0f, 4f, fx.gain) { fx = fx.copy(gain = it); repository.effects(fx) }
+            slider(controls, "เสียงก้อง", 0f, 1f, fx.echoMix) { fx = fx.copy(echoMix = it); repository.effects(fx) }
+            slider(controls, "เสียงสะท้อนห้อง", 0f, 1f, fx.reverb) { fx = fx.copy(reverb = it); repository.effects(fx) }
+        }
+        button(body, "ตั้งค่าไมค์และอุปกรณ์", false) { micSettings() }
+        text(body, "ถือไมค์ให้ห่างจากลำโพงเพื่อป้องกันเสียงหอน", 12f, muted)
+    }
+
+    private fun micSettings() {
+        val settings = column().apply { setPadding(dp(20), dp(12), dp(20), dp(16)); setBackgroundColor(screenColor) }
+        button(settings, "เลือกไมค์ในเครื่อง / สาย / USB", false) {
             val devices = audio.getDevices(AudioManager.GET_DEVICES_INPUTS).filter { it.type != AudioDeviceInfo.TYPE_TELEPHONY }
             val names = arrayOf("อัตโนมัติ (ระบบ Android)") + devices.map { it.productName.toString() }
             AlertDialog.Builder(this).setTitle("อุปกรณ์รับเสียง").setItems(names) { _, index ->
@@ -234,15 +366,17 @@ open class MainActivity : Activity() {
                 toast("เลือกแล้ว มีผลเมื่อเชื่อมต่อครั้งถัดไป")
             }.show()
         }
+        text(settings, "เลือกอุปกรณ์ก่อนเชื่อมต่อเครื่องเล่น", 13f, muted)
+        val advanced = expandable(settings, "ปรับแต่งเสียงเพิ่มเติม")
         slider(advanced, "ลดเสียงรบกวน (0 = ปิด)", 0f, 0.08f, fx.gate) { fx = fx.copy(gate = it); repository.effects(fx) }
         slider(advanced, "ระยะเสียงก้อง (ms)", 5f, 700f, fx.echoMs) { fx = fx.copy(echoMs = it); repository.effects(fx) }
         slider(advanced, "เสียงก้องซ้ำ", 0f, 0.85f, fx.feedback) { fx = fx.copy(feedback = it); repository.effects(fx) }
         slider(advanced, "เสียงทุ้ม", 0f, 2f, fx.low) { fx = fx.copy(low = it); repository.effects(fx) }
         slider(advanced, "เสียงกลาง", 0f, 2f, fx.mid) { fx = fx.copy(mid = it); repository.effects(fx) }
         slider(advanced, "เสียงแหลม", 0f, 2f, fx.high) { fx = fx.copy(high = it); repository.effects(fx) }
-        text(body, "ถือไมค์ให้ห่างจากลำโพงเพื่อป้องกันเสียงหอน", 13f, muted)
+        AlertDialog.Builder(this).setTitle("ตั้งค่าไมโครโฟน").setView(ScrollView(this).apply { addView(settings) })
+            .setPositiveButton("เสร็จแล้ว", null).show()
     }
-
     private fun startHost() {
         // WebView owns media audio focus. A second request here can receive LOSS when
         // the embedded player starts; closing the session in that callback erased the player.
@@ -252,7 +386,7 @@ open class MainActivity : Activity() {
 
     private fun host() {
         val search = row(body)
-        val query = input(search, "ค้นหาชื่อเพลง หรือวางลิงก์ HTTPS").apply {
+        val query = input(search, "ชื่อเพลง หรือวางลิงก์เพลง").apply {
             imeOptions = EditorInfo.IME_ACTION_SEARCH
             layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
         }
@@ -275,8 +409,12 @@ open class MainActivity : Activity() {
             max = 100; progressTintList = ColorStateList.valueOf(accent)
             visibility = View.GONE
         }.also { body.addView(it, LinearLayout.LayoutParams(-1, dp(3))) }
-        pageNotice = text(body, "เลือกเพลงแล้วกดเล่นในหน้าเว็บได้เลย", 12f, muted)
-        playerFrame = FrameLayout(this).also { body.addView(it, LinearLayout.LayoutParams(-1, 0, 1f)) }
+        pageNotice = text(body, "เลือกเพลงแล้วกดเล่นในหน้าเว็บได้เลย", 12f, muted).apply { maxLines = 2; ellipsize = TextUtils.TruncateAt.END }
+        playerFrame = FrameLayout(this).apply {
+            background = AppUi.shape(this@MainActivity, Color.WHITE, 18, null)
+            clipToOutline = true
+            tag = "player-viewport"
+        }.also { body.addView(it, LinearLayout.LayoutParams(-1, 0, 1f).apply { topMargin = dp(8); bottomMargin = dp(4) }) }
         createBrowser()
         loadMusic(lastUrl)
     }
@@ -433,33 +571,33 @@ open class MainActivity : Activity() {
         parent.addView(this, LinearLayout.LayoutParams(-1, -2))
     }
     private fun card(parent: LinearLayout) = column().apply {
-        setPadding(dp(16), dp(12), dp(16), dp(16))
-        background = GradientDrawable().apply { setColor(Color.rgb(23, 35, 53)); cornerRadius = dp(20).toFloat() }
-        parent.addView(this, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(14) })
+        setPadding(dp(16), dp(14), dp(16), dp(14))
+        background = AppUi.shape(this@MainActivity, radius = 22)
+        parent.addView(this, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(12) })
     }
-    private fun text(parent: LinearLayout, value: String, size: Float = 16f, color: Int = Color.WHITE) = TextView(this).apply {
-        text = value; textSize = size; setTextColor(color); setPadding(0, dp(6), 0, dp(6))
-        if (size >= 20f) setTypeface(typeface, Typeface.BOLD)
-        parent.addView(this)
+    private fun text(parent: LinearLayout, value: String, size: Float = 16f, color: Int = AppUi.text) = AppUi.label(this, value, size, color, size >= 18f).apply {
+        setPadding(0, dp(6), 0, dp(6)); parent.addView(this)
     }
     private fun input(parent: LinearLayout, hintText: String) = EditText(this).apply {
         hint = hintText; contentDescription = hintText
-        setTextColor(Color.WHITE); setHintTextColor(muted); textSize = 15f
-        setSingleLine(); minHeight = dp(48)
-        parent.addView(this, LinearLayout.LayoutParams(-1, -2))
+        setTextColor(AppUi.text); setHintTextColor(muted); textSize = 15f
+        background = AppUi.shape(this@MainActivity, radius = 14)
+        setPadding(dp(14), dp(12), dp(14), dp(12))
+        setSingleLine(); minHeight = dp(52)
+        parent.addView(this, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(4); bottomMargin = dp(4) })
     }
-    private fun button(parent: LinearLayout, value: String, primary: Boolean = true, weighted: Boolean = false, action: () -> Unit): Button {
-        return Button(this).apply {
-            text = value; isAllCaps = false; textSize = 14f; minHeight = dp(48)
-            setTextColor(if (primary) screenColor else accent)
-            backgroundTintList = ColorStateList.valueOf(if (primary) accent else Color.rgb(29, 45, 64))
-            setPadding(dp(10), dp(6), dp(10), dp(6))
+    private fun button(parent: LinearLayout, value: String, primary: Boolean = true, weighted: Boolean = false, tint: Int = accent, action: () -> Unit): Button {
+        return AppUi.action(this, value, primary, tint).apply {
             setOnClickListener { action() }
             val horizontal = parent.orientation == LinearLayout.HORIZONTAL
             parent.addView(this, LinearLayout.LayoutParams(if (weighted) 0 else if (horizontal) -2 else -1, -2,
-                if (weighted) 1f else 0f).apply { topMargin = dp(4); bottomMargin = dp(4) })
+                if (weighted) 1f else 0f).apply {
+                topMargin = dp(4); bottomMargin = dp(4)
+                if (horizontal) leftMargin = dp(4)
+            })
         }
     }
+
     private fun expandable(parent: LinearLayout, title: String): LinearLayout {
         val contents = column().apply { visibility = View.GONE }
         val toggle = button(parent, "＋ $title", false) {
@@ -474,21 +612,36 @@ open class MainActivity : Activity() {
         return contents
     }
     private fun slider(parent: LinearLayout, label: String, min: Float, max: Float, initial: Float, change: (Float) -> Unit) {
-        fun caption(value: Float) = "$label: ${if (max >= 100) value.roundToInt().toString() else "%.2f".format(value)}"
-        val text = text(parent, caption(initial), 14f)
+        fun format(value: Float): String = when {
+            label.contains("(ms)") -> "${value.roundToInt()} ms"
+            label.contains("ลดเสียงรบกวน") -> if (value <= 0f) "ปิด" else "%.3f".format(value)
+            else -> "${(value * 100).roundToInt()}%"
+        }
+        val caption = row(parent).apply { setPadding(0, dp(10), 0, 0) }
+        caption.addView(AppUi.label(this, label, 14f), LinearLayout.LayoutParams(0, -2, 1f))
+        val valueText = AppUi.label(this, format(initial), 13f, accent, true)
+        caption.addView(valueText)
         parent.addView(SeekBar(this).apply {
-            contentDescription = label; this.max = 1000
+            contentDescription = "$label ${format(initial)}"; this.max = 1000
+            if (Build.VERSION.SDK_INT >= 30) { contentDescription = label; stateDescription = format(initial) }
             progressTintList = ColorStateList.valueOf(accent); thumbTintList = progressTintList
+            progressBackgroundTintList = ColorStateList.valueOf(AppUi.border)
             progress = ((initial - min) / (max - min) * 1000).toInt()
             setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(bar: SeekBar?, progress: Int, fromUser: Boolean) {
-                    if (fromUser) { val value = min + (max - min) * progress / 1000; text.text = caption(value); change(value) }
+                    if (fromUser) {
+                        val value = min + (max - min) * progress / 1000
+                        valueText.text = format(value)
+                        if (Build.VERSION.SDK_INT >= 30) stateDescription = format(value) else contentDescription = "$label ${format(value)}"
+                        change(value)
+                    }
                 }
                 override fun onStartTrackingTouch(bar: SeekBar?) {}
                 override fun onStopTrackingTouch(bar: SeekBar?) {}
             })
         }, LinearLayout.LayoutParams(-1, dp(48)))
     }
+
     private fun dp(value: Int) = (value * resources.displayMetrics.density).roundToInt()
     private fun toast(message: String) = Toast.makeText(this, message, Toast.LENGTH_LONG).show()
 
@@ -504,11 +657,13 @@ open class MainActivity : Activity() {
     override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
         super.onConfigurationChanged(newConfig)
         applyPlayerLayout()
+        GettingStarted.resize(this, welcomeDialog)
     }
     private fun applyPlayerLayout() {
         if (rendered != Mode.HOST) return
         val compact = resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
         val visibility = if (compact) View.GONE else View.VISIBLE
+        statusPanel?.visibility = visibility
         status.visibility = visibility
         connection.visibility = visibility
         meter.visibility = visibility
@@ -528,6 +683,7 @@ open class MainActivity : Activity() {
         super.onStop()
     }
     override fun onDestroy() {
+        welcomeDialog?.dismiss(); welcomeDialog = null
         hideFullscreen(); destroyBrowser()
         if (repository is AndroidSessionRepository) SessionRuntime.release(repository as AndroidSessionRepository)
         else if (!repository.continuesInBackground) repository.destroy()
