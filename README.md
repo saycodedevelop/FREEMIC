@@ -11,9 +11,10 @@
 ## หน้าจอใหม่
 
 <table><tr>
-<td><img src="docs/screenshots/home.png" width="230" alt="หน้าเลือกเครื่องเล่นและไมค์"></td>
-<td><img src="docs/screenshots/microphone.png" width="230" alt="หน้าไมโครโฟนขณะเชื่อมต่อ"></td>
-<td><img src="docs/screenshots/getting-started.png" width="230" alt="คู่มือเริ่มใช้งานสามขั้นตอน"></td>
+<td><img src="docs/screenshots/home.png" width="185" alt="หน้าเลือกเครื่องเล่นและไมค์"></td>
+<td><img src="docs/screenshots/microphone.png" width="185" alt="หน้าไมโครโฟนขณะเชื่อมต่อ"></td>
+<td><img src="docs/screenshots/mixer.png" width="185" alt="แผงมิกเซอร์เสียง"></td>
+<td><img src="docs/screenshots/getting-started.png" width="185" alt="คู่มือเริ่มใช้งานสามขั้นตอน"></td>
 </tr></table>
 
 ภาพจากการเรนเดอร์ Android ด้วยสถานะจำลอง · [คู่มือผู้ใช้ใหม่](docs/USER_GUIDE.md)

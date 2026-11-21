@@ -56,7 +56,7 @@ object GettingStarted {
                 content.addView(row)
             }
             content.setPadding(0, 0, 0, dp(activity, 22))
-            back.visibility = if (index == 0) View.INVISIBLE else View.VISIBLE
+            back.visibility = if (index == 0) View.GONE else View.VISIBLE
             next.text = if (index == pages.lastIndex) "เริ่มใช้งาน" else "ถัดไป"
             scrolling.post { scrolling.scrollTo(0, 0) }
         }
@@ -72,9 +72,11 @@ object GettingStarted {
         return dialog
     }
     fun resize(activity: Activity, dialog: Dialog?) {
-        if (dialog?.isShowing == true) dialog.window?.setLayout(
-            (activity.resources.displayMetrics.widthPixels * .94f).toInt(),
-            (activity.resources.displayMetrics.heightPixels * .88f).toInt())
+        if (dialog?.isShowing == true) dialog.window?.apply {
+            setGravity(Gravity.BOTTOM)
+            setDimAmount(.65f)
+            setLayout(-1, minOf(dp(activity, 680), (activity.resources.displayMetrics.heightPixels * .88f).toInt()))
+        }
     }
     private fun dp(activity: Activity, value: Int) = AppUi.dp(activity, value)
 

@@ -1,6 +1,11 @@
 package com.karaokelink.presentation
 
+import android.app.Activity
+import android.app.Dialog
 import android.content.Context
+import android.graphics.drawable.ColorDrawable
+import android.view.ViewGroup
+import com.karaokelink.R
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.Typeface
@@ -13,16 +18,17 @@ import android.widget.*
 /** Shared visual tokens and accessible native controls; no web-based UI layer. */
 object AppUi {
     val background = Color.rgb(10, 16, 30)
-    val surface = Color.rgb(21, 31, 50)
-    val border = Color.rgb(43, 57, 79)
-    val mint = Color.rgb(104, 233, 196)
-    val violet = Color.rgb(185, 170, 255)
+    val surface = Color.rgb(20, 29, 46)
+    val raised = Color.rgb(28, 39, 58)
+    val border = Color.rgb(38, 50, 69)
+    val mint = Color.rgb(95, 220, 189)
+    val violet = Color.rgb(172, 164, 238)
     val text = Color.rgb(242, 246, 253)
     val muted = Color.rgb(172, 187, 209)
     val danger = Color.rgb(255, 151, 159)
     val amber = Color.rgb(246, 205, 135)
     fun dp(context: Context, value: Int) = (value * context.resources.displayMetrics.density + .5f).toInt()
-    fun shape(context: Context, fill: Int = surface, radius: Int = 20, stroke: Int? = border) = GradientDrawable().apply {
+    fun shape(context: Context, fill: Int = surface, radius: Int = 18, stroke: Int? = border) = GradientDrawable().apply {
         setColor(fill); cornerRadius = dp(context, radius).toFloat()
         stroke?.let { setStroke(dp(context, 1), it) }
     }
@@ -41,7 +47,7 @@ object AppUi {
         setPadding(dp(context, 14), dp(context, 10), dp(context, 14), dp(context, 10))
         setTextColor(if (primary) AppUi.background else tint)
         background = RippleDrawable(ColorStateList.valueOf(Color.argb(45, 255, 255, 255)),
-            shape(context, if (primary) tint else surface, 14, if (primary) null else border), null)
+            shape(context, if (primary) tint else raised, 12, null), null)
         stateListAnimator = null
     }
     fun icon(context: Context, drawable: Int, tint: Int = mint, size: Int = 24) = ImageView(context).apply {
@@ -53,9 +59,45 @@ object AppUi {
     fun iconButton(context: Context, drawable: Int, description: String, action: () -> Unit) = ImageButton(context).apply {
         setImageResource(drawable); imageTintList = ColorStateList.valueOf(muted)
         contentDescription = description
-        background = RippleDrawable(ColorStateList.valueOf(Color.argb(45, 255, 255, 255)), shape(context, surface, 14), null)
+        background = RippleDrawable(ColorStateList.valueOf(Color.argb(45, 255, 255, 255)), shape(context, raised, 12, null), null)
         setPadding(dp(context, 12), dp(context, 12), dp(context, 12), dp(context, 12))
         minimumWidth = dp(context, 48); minimumHeight = dp(context, 48)
         setOnClickListener { action() }
     }
-}
+
+    fun textAction(context: Context, title: String, tint: Int = muted) = action(context, title, false, tint).apply {
+        background = RippleDrawable(ColorStateList.valueOf(Color.argb(35, 255, 255, 255)), shape(context, Color.TRANSPARENT, 12, null), null)
+    }
+
+    /** One sheet pattern for sound controls, devices and connection information. */
+    fun sheet(activity: Activity, title: String, subtitle: String, content: View): Dialog {
+        val dialog = Dialog(activity)
+        val shell = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            background = shape(activity, AppUi.background, 24, null)
+            setPadding(dp(activity, 20), dp(activity, 10), dp(activity, 20), dp(activity, 20))
+            tag = "settings-sheet"
+        }
+        val header = LinearLayout(activity).apply { gravity = Gravity.CENTER_VERTICAL }
+        header.addView(label(activity, title, 21f, bold = true), LinearLayout.LayoutParams(0, -2, 1f))
+        header.addView(iconButton(activity, R.drawable.ic_dismiss, "ปิดหน้าต่าง") { dialog.dismiss() }, LinearLayout.LayoutParams(dp(activity, 48), dp(activity, 48)))
+        shell.addView(header)
+        shell.addView(label(activity, subtitle, 13f, muted).apply { setPadding(0, 0, 0, dp(activity, 16)) })
+        (content.parent as? ViewGroup)?.removeView(content)
+        shell.addView(ScrollView(activity).apply { addView(content); isFillViewport = false }, LinearLayout.LayoutParams(-1, 0, 1f))
+        shell.addView(action(activity, "เสร็จแล้ว").apply { setOnClickListener { dialog.dismiss() } },
+            LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(activity, 12) })
+        dialog.setContentView(shell)
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        dialog.show()
+        resizeSheet(activity, dialog)
+        return dialog
+    }
+    fun resizeSheet(activity: Activity, dialog: Dialog?) {
+        if (dialog?.isShowing != true) return
+        dialog.window?.apply {
+            setGravity(Gravity.BOTTOM)
+            setDimAmount(.65f)
+            setLayout(-1, minOf(dp(activity, 720), (activity.resources.displayMetrics.heightPixels * .86f).toInt()))
+        }
+    }}

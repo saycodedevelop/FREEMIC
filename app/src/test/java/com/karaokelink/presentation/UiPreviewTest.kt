@@ -51,12 +51,19 @@ class UiPreviewTest {
         }
         all(activity.window.decorView).filterIsInstance<ImageButton>().single { it.contentDescription == "วิธีใช้งาน" }.performClick()
         val guide = ShadowDialog.getLatestDialog()
-        render(guide.window!!.decorView, "getting-started", (width*.94f).toInt(), (height*.88f).toInt())
+        render(guide.window!!.decorView, "getting-started", width, minOf((680*density).toInt(), (height*.88f).toInt()))
         guide.dismiss()
         activity.fake.background = true
         activity.fake.state.value = SessionState(mode = Mode.MIC, peers = 1, vu = 0.62f)
         shadowOf(Looper.getMainLooper()).idle()
         render(activity.window.decorView, "microphone", width, height)
+        activity.fake.background = false
+        activity.fake.state.value = SessionState(mode = Mode.HOST, peers = 1)
+        shadowOf(Looper.getMainLooper()).idle()
+        all(activity.window.decorView).filterIsInstance<Button>().single { it.text == "ตั้งค่าเสียง" }.performClick()
+        val mixer = ShadowDialog.getLatestDialog()
+        render(mixer.window!!.decorView, "mixer", width, minOf((720*density).toInt(), (height*.86f).toInt()))
+        mixer.dismiss()
         controller.pause().stop().destroy()
     }
 }
