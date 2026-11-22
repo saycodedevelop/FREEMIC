@@ -179,4 +179,6 @@
     <string name="low_latency">低延迟模式</string>
     <string name="low_latency_hint">减少音频等待时间。如有杂音或断音，请关闭此模式。实际延迟仍取决于手机和网络。</string>
     <string name="latency_tips">测试延迟时，将附加延迟设为 0，并关闭麦克风回声和混响。使用附近空闲的 Wi-Fi 或播放器热点。支持时可尝试 5 GHz，并让设备靠近。</string>
+    <string name="hotspot_qr_label">扫码连接播放器 Wi-Fi</string>
+    <string name="hotspot_qr_hint">在麦克风手机上打开 Wi-Fi 设置并点击扫码按钮。扫描此二维码并确认连接，然后返回 KaraokeLink 选择播放器。如有提示，请保持连接此无互联网网络。</string>
 </resources>

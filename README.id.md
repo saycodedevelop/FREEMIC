@@ -70,3 +70,5 @@ Hotspot lokal tidak berbagi Internet; musik daring mungkin memerlukan data selul
 **Mode latensi rendah** aktif secara bawaan. Buffer penerima awal berkurang dari 30 menjadi 15 ms dan buffer keluaran dari empat menjadi dua burst; buffer tetap menyesuaikan jitter dan ukuran callback. Angka ini bukan hasil pengukuran jeda mulut ke speaker. Matikan mode jika suara berderak atau terputus. Saat membandingkan, atur tambahan jeda ke 0 dan matikan echo/reverb mikrofon. Hotspot dapat mengurangi variasi jaringan tetapi tidak menghilangkan jeda perangkat keras audio.
 
 [Panduan pengujian jeda (Thai)](docs/LATENCY.md)
+
+Saat hotspot siap, layar menampilkan **kode QR Wi-Fi**. Pada setiap mikrofon, buka pengaturan Wi-Fi, pindai kode pada pemutar, konfirmasi koneksi, lalu kembali ke KaraokeLink dan pilih pemutar. Kode dibuat secara lokal dan diperbarui mengikuti informasi hotspot. Aplikasi tidak memerlukan izin kamera.

@@ -52,6 +52,7 @@ android {
 dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     implementation("com.google.oboe:oboe:1.9.3")
+    implementation("com.google.zxing:core:3.5.4")
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.robolectric:robolectric:4.18")
 }

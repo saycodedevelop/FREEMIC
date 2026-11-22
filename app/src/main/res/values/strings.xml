@@ -179,4 +179,6 @@
     <string name="low_latency">Low latency mode</string>
     <string name="low_latency_hint">Reduces audio waiting time. Turn this off if you hear crackling or dropouts. Actual delay still depends on the phones and network.</string>
     <string name="latency_tips">For a delay check: set added delay to 0 and turn off microphone echo/reverb. Use a nearby, uncongested Wi-Fi network or the player hotspot. Try 5 GHz if available and keep devices close.</string>
+    <string name="hotspot_qr_label">Scan to connect to player Wi-Fi</string>
+    <string name="hotspot_qr_hint">On the microphone phone, open Wi-Fi settings and tap the QR scanner. Scan this code and confirm connection, then return to KaraokeLink and choose the player. If prompted, stay connected without Internet.</string>
 </resources>

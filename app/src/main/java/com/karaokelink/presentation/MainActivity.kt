@@ -80,6 +80,8 @@ open class MainActivity : Activity() {
     private val hotspot by lazy { PlayerHotspot(this) }
     private var hotspotStatus: TextView? = null
     private var hotspotButton: Button? = null
+    private var hotspotQr: WifiQrView? = null
+    private var hotspotQrHint: TextView? = null
     private val accent = AppUi.mint
     private val screenColor = AppUi.background
     private val muted = AppUi.muted
@@ -142,7 +144,7 @@ open class MainActivity : Activity() {
         statusPanel = null; micConnectSection = null; micControlPanel = null; micLivePanel = null
         micLiveTitle = null; micLiveHint = null; micStopButton = null; changePlayerButton = null
         discoveryExpanded = false
-        hotspotStatus = null; hotspotButton = null
+        hotspotStatus = null; hotspotButton = null; hotspotQr = null; hotspotQrHint = null
         if (mode != Mode.HOST) hotspot.stop()
         if (mode != Mode.HOST) window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         else window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -322,6 +324,11 @@ open class MainActivity : Activity() {
     private fun showHotspotSetup() {
         val content = column().apply { setPadding(0, 0, 0, dp(8)) }
         text(content, getString(R.string.hotspot_hint), 14f, muted)
+        hotspotQr = WifiQrView(this).apply {
+            visibility = View.GONE; tag = "hotspot-qr"
+            contentDescription = getString(R.string.hotspot_qr_label)
+        }.also { content.addView(it, LinearLayout.LayoutParams(-1, dp(240)).apply { topMargin = dp(8); bottomMargin = dp(8) }) }
+        hotspotQrHint = text(content, getString(R.string.hotspot_qr_hint), 14f, muted).apply { visibility = View.GONE }
         hotspotStatus = text(content, "", 16f, accent).apply { setTextIsSelectable(true) }
         hotspotButton = button(content, getString(R.string.hotspot_start)) {
             if (hotspot.state.ssid != null) hotspot.stop() else startPlayerHotspot()
@@ -344,6 +351,8 @@ open class MainActivity : Activity() {
         }
         hotspotButton?.text = getString(if (state.ssid != null) R.string.hotspot_stop else R.string.hotspot_start)
         hotspotButton?.isEnabled = !state.starting
+        hotspotQr?.show(state.ssid, state.password)
+        hotspotQrHint?.visibility = if (state.ssid != null) View.VISIBLE else View.GONE
     }
 
     private fun startPlayerHotspot() {
@@ -777,7 +786,7 @@ open class MainActivity : Activity() {
         if (repository is AndroidSessionRepository) SessionRuntime.release(repository as AndroidSessionRepository)
         else if (!repository.continuesInBackground) repository.destroy()
         hotspot.onChanged = {}; hotspot.stop()
-        hotspotStatus = null; hotspotButton = null
+        hotspotStatus = null; hotspotButton = null; hotspotQr = null; hotspotQrHint = null
         ui.cancel(); super.onDestroy()
     }
 }

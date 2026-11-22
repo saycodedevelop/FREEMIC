@@ -70,3 +70,5 @@ Trên máy phát nhạc, mở **Cài đặt âm thanh → Điểm phát Wi-Fi c�
 **Chế độ độ trễ thấp** mặc định bật, giảm bộ đệm nhận ban đầu từ 30 xuống 15 ms và bộ đệm đầu ra từ bốn xuống hai burst; vẫn thích ứng với jitter và kích thước callback. Đây không phải độ trễ từ miệng đến loa đo thực tế. Tắt chế độ nếu âm thanh rè hoặc ngắt. Khi so sánh, đặt độ trễ thêm bằng 0 và tắt echo/reverb micro. Điểm phát có thể giảm dao động mạng nhưng không loại bỏ độ trễ phần cứng âm thanh.
 
 [Hướng dẫn kiểm tra độ trễ (tiếng Thái)](docs/LATENCY.md)
+
+Khi điểm phát sẵn sàng, màn hình hiển thị **mã QR Wi-Fi**. Trên từng máy micro, mở cài đặt Wi-Fi, quét mã trên máy phát nhạc, xác nhận kết nối rồi quay lại KaraokeLink để chọn máy phát nhạc. Mã được tạo cục bộ và cập nhật theo thông tin điểm phát, không cần cấp quyền camera cho ứng dụng.

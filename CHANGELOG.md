@@ -4,6 +4,8 @@
 
 ### [th] ไทย
 
+- เพิ่ม QR เชื่อมต่อ Wi-Fi ในหน้า hotspot ของเครื่องเล่น ให้เครื่องไมค์สแกนผ่านการตั้งค่า Wi-Fi โดยไม่ต้องพิมพ์รหัสผ่าน พร้อมอัปเดต/ซ่อนโค้ดตามสถานะ hotspot
+
 - เพิ่ม hotspot Wi-Fi จากเครื่องเล่น แสดงชื่อและรหัสผ่าน พร้อมทางลัดการตั้งค่า hotspot ของระบบ และจัดการสิทธิ์ตามรุ่น Android
 - เพิ่มโหมดหน่วงต่ำที่เปิดเป็นค่าเริ่มต้น ลดบัฟเฟอร์รับเริ่มต้นเป็น 15 ms และขาออกเป็น 2 bursts พร้อมสลับกลับโหมดเสถียรได้ ผูก UDP ของไมค์กับ Wi-Fi แม้เครือข่ายไม่แชร์อินเทอร์เน็ต
 
@@ -15,6 +17,8 @@
 - เพิ่ม README ครบห้าภาษาพร้อมลิงก์สลับภาษา และสร้าง Release จากรายการเปลี่ยนแปลงที่แปลครบทั้งห้าภาษา
 
 ### [en] English
+
+- Show a locally generated Wi-Fi QR code on the player hotspot screen so microphones can join using the system Wi-Fi scanner; update or hide the code with hotspot state.
 
 - Add a player-created local Wi-Fi hotspot with credentials, system hotspot settings, and Android-version-specific permissions.
 - Enable low latency by default with a 15 ms initial receive reserve and two-burst output buffer, with a stable-mode fallback; bind microphone UDP to Wi-Fi even without Internet access.
@@ -28,6 +32,8 @@
 
 ### [zh-CN] 简体中文
 
+- 在播放器热点页面显示本地生成的 Wi-Fi 二维码，麦克风可使用系统 Wi-Fi 扫码连接；二维码随热点状态更新或隐藏。
+
 - 增加播放器本地 Wi-Fi 热点，显示连接信息，提供系统热点设置入口，并按 Android 版本处理权限。
 - 默认启用低延迟模式，初始接收缓冲为 15 ms、输出缓冲为两个 burst，可切换回稳定模式；即使 Wi-Fi 没有互联网，也将麦克风 UDP 绑定到 Wi-Fi。
 
@@ -40,6 +46,8 @@
 
 ### [vi] Tiếng Việt
 
+- Hiển thị mã QR Wi-Fi tạo cục bộ trên màn hình điểm phát để micro kết nối bằng trình quét Wi-Fi của hệ thống; cập nhật hoặc ẩn mã theo trạng thái điểm phát.
+
 - Thêm điểm phát Wi-Fi cục bộ từ máy phát nhạc với thông tin kết nối, lối tắt cài đặt hệ thống và quyền theo phiên bản Android.
 - Mặc định bật độ trễ thấp với bộ đệm nhận ban đầu 15 ms và đầu ra hai burst, có thể trở về chế độ ổn định; gắn UDP micro với Wi-Fi ngay cả khi mạng không có Internet.
 
@@ -51,6 +59,8 @@
 - Thêm README năm ngôn ngữ với liên kết chuyển ngôn ngữ và tạo ghi chú phát hành từ nhật ký đã dịch đủ năm ngôn ngữ.
 
 ### [id] Bahasa Indonesia
+
+- Tampilkan kode QR Wi-Fi yang dibuat secara lokal pada layar hotspot agar mikrofon dapat bergabung lewat pemindai Wi-Fi sistem; perbarui atau sembunyikan kode sesuai status hotspot.
 
 - Tambahkan hotspot Wi-Fi lokal dari pemutar dengan informasi koneksi, pintasan pengaturan sistem, dan izin sesuai versi Android.
 - Aktifkan latensi rendah secara bawaan dengan buffer penerima awal 15 ms dan keluaran dua burst serta pilihan mode stabil; ikat UDP mikrofon ke Wi-Fi meskipun tanpa Internet.

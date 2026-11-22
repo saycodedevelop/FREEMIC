@@ -179,4 +179,6 @@
     <string name="low_latency">Mode latensi rendah</string>
     <string name="low_latency_hint">Mengurangi waktu tunggu audio. Matikan jika suara berderak atau terputus. Jeda nyata tetap bergantung pada ponsel dan jaringan.</string>
     <string name="latency_tips">Saat menguji jeda: atur tambahan jeda ke 0 dan matikan echo/reverb mikrofon. Gunakan Wi-Fi dekat yang tidak padat atau hotspot pemutar. Coba 5 GHz jika tersedia dan dekatkan perangkat.</string>
+    <string name="hotspot_qr_label">Pindai untuk terhubung ke Wi-Fi pemutar</string>
+    <string name="hotspot_qr_hint">Pada mikrofon, buka pengaturan Wi-Fi dan ketuk pemindai QR. Pindai kode ini dan konfirmasi koneksi, lalu kembali ke KaraokeLink dan pilih pemutar. Jika ditanya, tetap terhubung meskipun tanpa Internet.</string>
 </resources>

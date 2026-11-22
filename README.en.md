@@ -70,3 +70,5 @@ The app hotspot does not share Internet; online music may need mobile data, and 
 **Low latency mode** defaults to on. It reduces the initial receive reserve from 30 to 15 ms and the output buffer from four to two bursts; buffering still adapts to jitter and callback size. These are buffer settings, not measured mouth-to-speaker latency. Turn the mode off if audio crackles or drops out. When comparing delay, set added delay to 0 and disable microphone echo/reverb. A hotspot may reduce network variation but cannot remove hardware audio delay.
 
 [Delay testing guide (Thai)](docs/LATENCY.md)
+
+Once the hotspot is ready, its screen displays a **Wi-Fi QR code**. On each microphone, open Wi-Fi settings, scan the player code, confirm connection, then return to KaraokeLink and choose the player. The code is generated locally and updates with the hotspot credentials. No in-app camera permission is needed.
