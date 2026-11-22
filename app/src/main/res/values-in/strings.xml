@@ -167,7 +167,7 @@
     <string name="system_language">Ikuti sistem</string>
     <string name="karaoke_search">karaoke</string>
     <string name="hotspot_title">Hotspot Wi-Fi pemutar</string>
-    <string name="hotspot_hint">Biarkan pemutar membuat Wi-Fi untuk ponsel mikrofon. Hotspot lokal ini tidak berbagi Internet; musik daring mungkin memerlukan data seluler. Beberapa ponsel memutus Wi-Fi sebelumnya. Biarkan layar pemutar terbuka. Gunakan pengaturan hotspot sistem untuk berbagi Internet atau memilih 5 GHz.</string>
+    <string name="hotspot_hint">Biarkan pemutar membuat Wi-Fi untuk ponsel mikrofon. Hotspot lokal ini tidak berbagi Internet; musik daring mungkin memerlukan data seluler. Beberapa ponsel memutus Wi-Fi sebelumnya. Gunakan pengaturan hotspot sistem untuk berbagi Internet atau memilih 5 GHz.</string>
     <string name="hotspot_start">Buat Wi-Fi dari pemutar</string>
     <string name="hotspot_stop">Hentikan Wi-Fi pemutar</string>
     <string name="hotspot_starting">Membuat Wi-Fi…</string>
@@ -181,4 +181,14 @@
     <string name="latency_tips">Saat menguji jeda: atur tambahan jeda ke 0 dan matikan echo/reverb mikrofon. Gunakan Wi-Fi dekat yang tidak padat atau hotspot pemutar. Coba 5 GHz jika tersedia dan dekatkan perangkat.</string>
     <string name="hotspot_qr_label">Pindai untuk terhubung ke Wi-Fi pemutar</string>
     <string name="hotspot_qr_hint">Pada mikrofon, buka pengaturan Wi-Fi dan ketuk pemindai QR. Pindai kode ini dan konfirmasi koneksi, lalu kembali ke KaraokeLink dan pilih pemutar. Jika ditanya, tetap terhubung meskipun tanpa Internet.</string>
+    <string name="player_fullscreen">Layar penuh</string>
+    <string name="lock_touch">Kunci sentuhan</string>
+    <string name="touch_locked">Sentuhan terkunci</string>
+    <string name="unlock_touch">Tahan untuk membuka</string>
+    <string name="unlock_touch_hint">Tekan dan tahan tombol untuk membuka kunci. Ketukan singkat atau tombol Kembali tidak menghentikan pemutar. Tombol daya tetap dapat mematikan layar.</string>
+    <string name="player_background_hint">Koneksi mikrofon tetap aktif saat layar mati atau aplikasi lain dibuka. Beberapa situs mungkin menjeda musik di latar belakang. Gunakan kunci sentuhan agar halaman pemutar tetap terbuka tanpa tersentuh tidak sengaja.</string>
+    <string name="player_notification_channel">Pemutar latar belakang</string>
+    <string name="player_notification_title">KaraokeLink • Pemutar aktif</string>
+    <string name="player_notification_active">Mikrofon: %1$d/2 • Koneksi tetap aktif saat layar mati</string>
+    <string name="stop_player">Hentikan pemutar</string>
 </resources>

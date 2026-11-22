@@ -38,7 +38,7 @@ class PlayerRegressionTest {
         var fast = true
         override fun lowLatency(enabled: Boolean) { fast = enabled }
         override val continuesInBackground: Boolean get() = background
-        override suspend fun select(mode: Mode) { selections++; background = false; state.value = SessionState(mode = mode, status = "พร้อม") }
+        override suspend fun select(mode: Mode) { selections++; background = mode == Mode.HOST; state.value = SessionState(mode = mode, status = "พร้อม") }
         override suspend fun connect(ip: String) {}
         override fun effects(value: MicEffects) {}
         override fun hostMix(gain: Float, delayMs: Int) {}
@@ -75,7 +75,7 @@ class PlayerRegressionTest {
         click(activity, "เปิดเครื่องเล่นเพลง")
         val original = browser(activity)
         controller.pause().stop()
-        assertEquals(1, activity.fake.pauses)
+        assertEquals(0, activity.fake.pauses)
         assertEquals(Mode.HOST, activity.fake.state.value.mode)
         controller.start().resume().visible()
         shadowOf(Looper.getMainLooper()).idle()
@@ -189,6 +189,61 @@ class PlayerRegressionTest {
         assertEquals("https://example.com/song", shadowOf(browser(restored)).lastLoadedUrl)
         controller.pause().stop().destroy()
     }
+    @Test fun screenOffKeepsTwoMicrophonesAndDoesNotPauseTheWebsite() {
+        val controller = Robolectric.buildActivity(TestActivity::class.java).setup()
+        val activity = controller.get()
+        click(activity, "เปิดเครื่องเล่นเพลง")
+        activity.fake.state.value = activity.fake.state.value.copy(peers = 2)
+        shadowOf(Looper.getMainLooper()).idle()
+        val original = browser(activity)
+        val script = shadowOf(original).lastEvaluatedJavascript
+        val selections = activity.fake.selections
+        controller.pause().stop()
+        assertEquals(0, activity.fake.pauses)
+        assertEquals(script, shadowOf(original).lastEvaluatedJavascript)
+        controller.start().resume().visible()
+        assertEquals(selections, activity.fake.selections)
+        assertEquals(2, activity.fake.state.value.peers)
+        assertSame(original, browser(activity))
+        controller.pause().stop().destroy()
+        assertEquals(0, activity.fake.destructions)
+    }
+
+    @Suppress("DEPRECATION")
+    @Test fun browserFullscreenReparentsWithoutReloadOrDisconnect() {
+        val controller = Robolectric.buildActivity(TestActivity::class.java).setup()
+        val activity = controller.get()
+        click(activity, "เปิดเครื่องเล่นเพลง")
+        val original = browser(activity)
+        val selections = activity.fake.selections
+        click(activity, "เต็มจอ")
+        assertEquals("player-fullscreen", (original.parent as View).tag)
+        assertTrue(activity.window.attributes.flags and android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN != 0)
+        activity.onBackPressed()
+        assertEquals("player-viewport", (original.parent as View).tag)
+        assertEquals(selections, activity.fake.selections)
+        assertSame(original, browser(activity))
+        controller.pause().stop().destroy()
+    }
+
+    @Suppress("DEPRECATION")
+    @Test fun accidentalTapAndBackCannotDismissTouchLock() {
+        val controller = Robolectric.buildActivity(TestActivity::class.java).setup()
+        val activity = controller.get()
+        click(activity, "เปิดเครื่องเล่นเพลง")
+        val selections = activity.fake.selections
+        click(activity, "ล็อกการสัมผัส")
+        val unlock = views(activity).filterIsInstance<Button>().single { it.text == "กดค้างเพื่อปลดล็อก" }
+        unlock.performClick(); activity.onBackPressed()
+        val back = MainActivity::class.java.getDeclaredField("systemBackCallback").apply { isAccessible = true }
+        (back.get(activity) as android.window.OnBackInvokedCallback).onBackInvoked()
+        assertTrue(views(activity).any { it.tag == "player-touch-lock" })
+        assertEquals(selections, activity.fake.selections)
+        unlock.performLongClick()
+        assertFalse(views(activity).any { it.tag == "player-touch-lock" })
+        controller.pause().stop().destroy()
+    }
+
     @Test fun screenOffAndActivityDestructionKeepActiveMicrophoneAlive() {
         val controller = Robolectric.buildActivity(TestActivity::class.java).setup()
         val activity = controller.get()

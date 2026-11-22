@@ -2,6 +2,7 @@ package com.karaokelink.data
 
 import android.content.Context
 import com.karaokelink.service.MicrophoneService
+import com.karaokelink.service.PlayerService
 import android.net.wifi.WifiManager
 import android.os.SystemClock
 import com.karaokelink.core.audio.NativeAudio
@@ -18,7 +19,8 @@ import java.security.SecureRandom
 class AndroidSessionRepository(context: Context) : SessionRepository {
     private val appContext = context.applicationContext
     private var backgroundRequested = false
-    override val continuesInBackground: Boolean get() = backgroundRequested
+    private var playerBackgroundRequested = false
+    override val continuesInBackground: Boolean get() = backgroundRequested || playerBackgroundRequested
     private fun stopBackgroundMicrophone() {
         if (backgroundRequested) { backgroundRequested = false; MicrophoneService.stop(appContext) }
     }
@@ -59,7 +61,7 @@ class AndroidSessionRepository(context: Context) : SessionRepository {
     }
     private fun now() = SystemClock.elapsedRealtime()
     override suspend fun select(mode: Mode) {
-        reset()
+        reset(keepPlayer = mode == Mode.HOST)
         mutable.value = SessionState(mode = mode, status = if (mode == Mode.HOST) "กำลังเปิด Host" else "กำลังค้นหา Host ใน Wi-Fi")
         if (mode == Mode.HOME) { mutable.value = SessionState(); return }
         try {
@@ -69,6 +71,10 @@ class AndroidSessionRepository(context: Context) : SessionRepository {
             mutable.update { it.copy(status = if (mode == Mode.HOST) "Host พร้อมรับไมค์ 2 เครื่อง • UDP 40102" else "เลือก Host หรือกรอก IPv4") }
             timer = scope.launch {
                 while (isActive) { tick(); delay(500) }
+            }
+            if (mode == Mode.HOST) {
+                playerBackgroundRequested = true
+                PlayerService.start(appContext)
             }
         } catch (e: Exception) {
             reset()
@@ -161,7 +167,12 @@ class AndroidSessionRepository(context: Context) : SessionRepository {
             lock?.let { if (it.isHeld) it.release() }; lock = null
         }
     }
-    private fun reset() {
+    private fun reset(keepPlayer: Boolean = false) {
+        if (!keepPlayer) {
+            playerBackgroundRequested = false
+            PlayerService.stop(appContext)
+            SessionRuntime.stopHotspot()
+        }
         stopBackgroundMicrophone()
         generation++; timer?.cancel(); timer = null
         if (session != 0) target?.let { lan.command("KL1 BYE $session", it) }

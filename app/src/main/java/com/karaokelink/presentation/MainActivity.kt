@@ -8,7 +8,6 @@ import com.karaokelink.R
 import android.app.AlertDialog
 import android.content.Intent
 import android.provider.Settings
-import com.karaokelink.core.network.PlayerHotspot
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.pm.PackageManager
@@ -69,6 +68,10 @@ open class MainActivity : Activity() {
     private var pageProgress: ProgressBar? = null
     private var fullscreen: FrameLayout? = null
     private var fullscreenCallback: WebChromeClient.CustomViewCallback? = null
+    private var browserFullscreen = false
+    private var fullscreenSystemUi = 0
+    private var touchLock: FrameLayout? = null
+    private var systemBackCallback: android.window.OnBackInvokedCallback? = null
     private var firstMode: Mode? = null
     private var lastUrl = PlayerNavigation.HOME
     private var pendingIp: String? = null
@@ -77,7 +80,7 @@ open class MainActivity : Activity() {
     private var micVolume = 1f
     private var musicVolume = 1f
     private var delayMs = 0
-    private val hotspot by lazy { PlayerHotspot(this) }
+    private val hotspot by lazy { SessionRuntime.hotspot(applicationContext) }
     private var hotspotStatus: TextView? = null
     private var hotspotButton: Button? = null
     private var hotspotQr: WifiQrView? = null
@@ -105,6 +108,10 @@ open class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (Build.VERSION.SDK_INT >= 33) {
+            systemBackCallback = android.window.OnBackInvokedCallback { if (!handlePlayerBack()) moveTaskToBack(true) }
+            onBackInvokedDispatcher.registerOnBackInvokedCallback(android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT, systemBackCallback!!)
+        }
         firstMode = savedInstanceState?.getString("mode")?.let { runCatching { Mode.valueOf(it) }.getOrNull() }
         lastUrl = savedInstanceState?.getString("musicUrl") ?: PlayerNavigation.HOME
         repository = createRepository()
@@ -137,7 +144,7 @@ open class MainActivity : Activity() {
 
     private fun render(mode: Mode) {
         settingsDialog?.dismiss(); settingsDialog = null
-        hideFullscreen(); destroyBrowser()
+        hideTouchLock(); hideFullscreen(); destroyBrowser()
         rendered = mode
         hosts = null; hostSignature = "!"
         playerFrame = null; pageNotice = null; pageProgress = null
@@ -490,6 +497,12 @@ open class MainActivity : Activity() {
             tag = "player-viewport"
         }.also { body.addView(it, LinearLayout.LayoutParams(-1, 0, 1f).apply { topMargin = dp(8); bottomMargin = dp(4) }) }
         createBrowser()
+        val displayTools = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; tag = "player-display-controls"
+            button(this, getString(R.string.player_fullscreen), false) { web?.let { showPlayerFullscreen(it, browser = true) } }
+            button(this, getString(R.string.lock_touch), false) { showTouchLock() }
+        }
+        playerFrame?.addView(displayTools, FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM or Gravity.END))
         loadMusic(lastUrl)
     }
 
@@ -540,22 +553,15 @@ open class MainActivity : Activity() {
                     pageProgress?.visibility = if (progress < 100) View.VISIBLE else View.GONE
                 }
                 override fun onShowCustomView(view: View, callback: CustomViewCallback) {
-                    if (fullscreen != null) { callback.onCustomViewHidden(); return }
-                    fullscreenCallback = callback
-                    fullscreen = FrameLayout(this@MainActivity).apply {
-                        setBackgroundColor(Color.BLACK)
-                        addView(view, FrameLayout.LayoutParams(-1, -1))
-                        addView(Button(this@MainActivity).apply {
-                            text = getString(R.string.exit_fullscreen); isAllCaps = false
-                            setOnClickListener { hideFullscreen() }
-                        }, FrameLayout.LayoutParams(-2, dp(48), Gravity.TOP or Gravity.END))
-                    }.also { stage.addView(it, FrameLayout.LayoutParams(-1, -1)) }
+                    if (fullscreen != null && !browserFullscreen) { callback.onCustomViewHidden(); return }
+                    if (browserFullscreen) hideFullscreen()
+                    showPlayerFullscreen(view, callback)
                 }
                 override fun onHideCustomView() { hideFullscreen() }
             }
         }
         web = browser
-        frame.addView(browser, FrameLayout.LayoutParams(-1, -1))
+        frame.addView(browser, 0, FrameLayout.LayoutParams(-1, -1))
     }
 
     private fun loadMusic(target: String) {
@@ -575,6 +581,7 @@ open class MainActivity : Activity() {
                 repository.lowLatency(checked)
             }
         }, LinearLayout.LayoutParams(-1, -2))
+        text(settings, getString(R.string.player_background_hint), 13f, muted)
         text(settings, getString(R.string.low_latency_hint), 13f, muted)
         text(settings, getString(R.string.latency_tips), 13f, muted)
         button(settings, getString(R.string.hotspot_title), false) { showHotspotSetup() }
@@ -643,12 +650,71 @@ open class MainActivity : Activity() {
             .setPositiveButton(getString(R.string.stop_home)) { _, _ -> ui.launch { repository.select(Mode.HOME) } }
             .setNegativeButton(getString(R.string.keep_playing), null).show()
     }
+    @Suppress("DEPRECATION")
+    private fun showPlayerFullscreen(view: View, callback: WebChromeClient.CustomViewCallback? = null, browser: Boolean = false) {
+        if (fullscreen != null) return
+        getSystemService(InputMethodManager::class.java).hideSoftInputFromWindow(currentFocus?.windowToken, 0)
+        currentFocus?.clearFocus()
+        (view.parent as? ViewGroup)?.removeView(view)
+        browserFullscreen = browser
+        fullscreenCallback = callback
+        fullscreenSystemUi = window.decorView.systemUiVisibility
+        window.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
+        if (Build.VERSION.SDK_INT >= 30) {
+            window.insetsController?.hide(WindowInsets.Type.systemBars())
+            window.insetsController?.systemBarsBehavior = android.view.WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        } else {
+            window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_FULLSCREEN or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+        }
+        fullscreen = FrameLayout(this).apply {
+            tag = "player-fullscreen"; setBackgroundColor(Color.BLACK)
+            addView(view, FrameLayout.LayoutParams(-1, -1))
+            val tools = LinearLayout(this@MainActivity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                button(this, getString(R.string.lock_touch), false) { showTouchLock() }
+                button(this, getString(R.string.exit_fullscreen), false) { hideFullscreen() }
+            }
+            addView(tools, FrameLayout.LayoutParams(-2, -2, Gravity.TOP or Gravity.END))
+        }.also { stage.addView(it, FrameLayout.LayoutParams(-1, -1)) }
+    }
+
+    @Suppress("DEPRECATION")
     private fun hideFullscreen() {
-        fullscreen?.let { (it.parent as? ViewGroup)?.removeView(it) }
+        val overlay = fullscreen ?: return
         fullscreen = null
+        if (browserFullscreen) web?.let { browser ->
+            (browser.parent as? ViewGroup)?.removeView(browser)
+            playerFrame?.addView(browser, 0, FrameLayout.LayoutParams(-1, -1))
+        }
+        browserFullscreen = false
+        (overlay.parent as? ViewGroup)?.removeView(overlay)
+        window.clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
+        window.decorView.systemUiVisibility = fullscreenSystemUi
+        if (Build.VERSION.SDK_INT >= 30) window.insetsController?.show(WindowInsets.Type.systemBars())
         val callback = fullscreenCallback
         fullscreenCallback = null
         callback?.onCustomViewHidden()
+    }
+
+    private fun showTouchLock() {
+        if (touchLock != null || repository.state.value.mode != Mode.HOST) return
+        getSystemService(InputMethodManager::class.java).hideSoftInputFromWindow(currentFocus?.windowToken, 0)
+        touchLock = FrameLayout(this).apply {
+            tag = "player-touch-lock"; setBackgroundColor(Color.BLACK)
+            isClickable = true; isFocusable = true
+            val controls = column().apply { gravity = Gravity.CENTER; setPadding(dp(24), dp(24), dp(24), dp(24)) }
+            text(controls, getString(R.string.touch_locked), 20f, accent)
+            text(controls, getString(R.string.unlock_touch_hint), 15f, muted)
+            button(controls, getString(R.string.unlock_touch), false) {}.apply {
+                setOnLongClickListener { hideTouchLock(); true }
+            }
+            addView(controls, FrameLayout.LayoutParams(-1, -2, Gravity.CENTER))
+        }.also { stage.addView(it, FrameLayout.LayoutParams(-1, -1)); it.requestFocus() }
+    }
+
+    private fun hideTouchLock() {
+        touchLock?.let { (it.parent as? ViewGroup)?.removeView(it) }
+        touchLock = null
     }
     private fun destroyBrowser() {
         web?.let { browser ->
@@ -743,12 +809,17 @@ open class MainActivity : Activity() {
 
     @Deprecated("Legacy back dispatch for framework Activity")
     override fun onBackPressed() {
+        if (!handlePlayerBack()) super.onBackPressed()
+    }
+    private fun handlePlayerBack(): Boolean {
         when {
+            touchLock != null -> Unit
             fullscreen != null -> hideFullscreen()
             web?.canGoBack() == true -> web?.goBack()
             repository.state.value.mode != Mode.HOME -> confirmHome()
-            else -> super.onBackPressed()
+            else -> return false
         }
+        return true
     }
     override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
         super.onConfigurationChanged(newConfig)
@@ -772,20 +843,26 @@ open class MainActivity : Activity() {
         super.onSaveInstanceState(outState)
     }
     override fun onStop() {
-        hideFullscreen()
-        web?.evaluateJavascript("document.querySelectorAll('audio,video').forEach(function(x){x.pause();});", null)
-        web?.onPause()
-        // Stop capture and sockets in background while retaining the screen and browser.
-        if (!repository.continuesInBackground) ui.launch { repository.pause() }
+        // Active player and microphone sessions are owned by their foreground services.
+        // Do not inject a pause into the website or close native sockets on screen-off.
+        if (!repository.continuesInBackground) {
+            hideFullscreen()
+            web?.evaluateJavascript("document.querySelectorAll('audio,video').forEach(function(x){x.pause();});", null)
+            web?.onPause()
+            ui.launch { repository.pause() }
+        }
         super.onStop()
     }
     override fun onDestroy() {
+        if (Build.VERSION.SDK_INT >= 33) systemBackCallback?.let { onBackInvokedDispatcher.unregisterOnBackInvokedCallback(it) }
+        systemBackCallback = null
         welcomeDialog?.dismiss(); welcomeDialog = null
         settingsDialog?.dismiss(); settingsDialog = null
-        hideFullscreen(); destroyBrowser()
+        hideTouchLock(); hideFullscreen(); destroyBrowser()
         if (repository is AndroidSessionRepository) SessionRuntime.release(repository as AndroidSessionRepository)
         else if (!repository.continuesInBackground) repository.destroy()
-        hotspot.onChanged = {}; hotspot.stop()
+        hotspot.onChanged = {}
+        if (!repository.continuesInBackground) hotspot.stop()
         hotspotStatus = null; hotspotButton = null; hotspotQr = null; hotspotQrHint = null
         ui.cancel(); super.onDestroy()
     }

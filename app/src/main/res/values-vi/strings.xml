@@ -167,7 +167,7 @@
     <string name="system_language">Theo hệ thống</string>
     <string name="karaoke_search">karaoke</string>
     <string name="hotspot_title">Điểm phát Wi-Fi của máy phát nhạc</string>
-    <string name="hotspot_hint">Để máy phát nhạc tạo Wi-Fi cho các máy micro kết nối. Điểm phát cục bộ không chia sẻ Internet; nhạc trực tuyến có thể cần dữ liệu di động. Một số máy sẽ ngắt Wi-Fi hiện tại. Giữ màn hình phát nhạc mở. Dùng cài đặt điểm phát của hệ thống để chia sẻ Internet hoặc chọn 5 GHz.</string>
+    <string name="hotspot_hint">Để máy phát nhạc tạo Wi-Fi cho các máy micro kết nối. Điểm phát cục bộ không chia sẻ Internet; nhạc trực tuyến có thể cần dữ liệu di động. Một số máy sẽ ngắt Wi-Fi hiện tại. Dùng cài đặt điểm phát của hệ thống để chia sẻ Internet hoặc chọn 5 GHz.</string>
     <string name="hotspot_start">Tạo Wi-Fi từ máy phát nhạc</string>
     <string name="hotspot_stop">Dừng Wi-Fi của máy phát nhạc</string>
     <string name="hotspot_starting">Đang tạo Wi-Fi…</string>
@@ -181,4 +181,14 @@
     <string name="latency_tips">Khi kiểm tra độ trễ: đặt độ trễ thêm bằng 0 và tắt echo/reverb của micro. Dùng Wi-Fi gần, ít tải hoặc điểm phát của máy phát nhạc. Thử 5 GHz nếu có và đặt các máy gần nhau.</string>
     <string name="hotspot_qr_label">Quét để kết nối Wi-Fi của máy phát nhạc</string>
     <string name="hotspot_qr_hint">Trên máy micro, mở cài đặt Wi-Fi và nhấn quét QR. Quét mã này, xác nhận kết nối rồi quay lại KaraokeLink và chọn máy phát nhạc. Nếu được hỏi, hãy giữ kết nối dù không có Internet.</string>
+    <string name="player_fullscreen">Toàn màn hình</string>
+    <string name="lock_touch">Khóa cảm ứng</string>
+    <string name="touch_locked">Đã khóa cảm ứng</string>
+    <string name="unlock_touch">Nhấn giữ để mở khóa</string>
+    <string name="unlock_touch_hint">Nhấn giữ nút để mở khóa. Chạm nhanh hoặc nhấn Quay lại không dừng máy phát nhạc. Vẫn có thể tắt màn hình bằng nút nguồn.</string>
+    <string name="player_background_hint">Giữ kết nối micro khi tắt màn hình hoặc mở ứng dụng khác. Một số trang có thể tạm dừng nhạc chạy nền. Khóa cảm ứng giúp giữ trang phát nhạc mở và tránh chạm nhầm.</string>
+    <string name="player_notification_channel">Máy phát nhạc chạy nền</string>
+    <string name="player_notification_title">KaraokeLink • Máy phát nhạc đang hoạt động</string>
+    <string name="player_notification_active">Micro: %1$d/2 • Giữ kết nối khi tắt màn hình</string>
+    <string name="stop_player">Dừng máy phát nhạc</string>
 </resources>

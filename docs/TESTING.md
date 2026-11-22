@@ -26,7 +26,7 @@ CI ใน `.github/workflows/android.yml` ทำ build/lint และทดส�
 | Bluetooth A2DP/BLE | ขอ permission, route ตามอุปกรณ์จริง, แสดงข้อความเรื่อง delay |
 | เปิดเพลง WebView พร้อมไมค์ | ได้ยินพร้อมกันผ่าน route เดียว, music slider อาจใช้ไม่ได้ตามเว็บไซต์ |
 | เปิดเพลงจาก WebView | หน้าเครื่องเล่นและไมค์ยังอยู่ ไม่กลับหน้าเลือกเมื่อเพลงขอ audio focus |
-| สลับไปเบราว์เซอร์/กด Home/ปิดหน้าจอ แล้วกลับแอป | เครื่อง Host พักเสียงและคงหน้าเดิม; เครื่อง Mic ที่เชื่อมต่อและมี foreground service ต้องส่งเสียงต่อโดยไม่ reconnect |
+| สลับไปเบราว์เซอร์/กด Home/ปิดหน้าจอ แล้วกลับแอป | Host/Mic ที่มี foreground service ต้องคงการเชื่อมต่อโดยไม่ reconnect; เพลงเว็บอาจพักตามนโยบายเว็บ และต้องทดสอบแยกจากเสียงไมค์ |
 | กลับหน้าแรกในแอป | ต้องยืนยันก่อนหยุดเพลงและเปลี่ยนโหมด |
 | วิดีโอเต็มจอ/หมุนเครื่อง/ย้อนกลับ | ย่อเต็มจอก่อน, ย้อนประวัติเพลงก่อน, ไม่ปิดโหมดเครื่องเล่นเอง |
 | WebView renderer ล้ม | แสดงข้อความและกดโหลดใหม่ได้ โดยคงโหมด Host |
@@ -99,3 +99,21 @@ permission decisions, hotspot credentials being usable, a second microphone, dis
 Internet behavior, audible delay, dropouts, and battery effects. Verify leaving Host or closing the app
 stops its hotspot while a system-created hotspot remains user-controlled. Compare normal Wi-Fi and
 player hotspot with added delay at zero and echo/reverb off. No device results are claimed by unit tests.
+
+## Player fullscreen and screen-off regression
+
+PlayerServiceTest verifies foreground media notification and Stop, non-sticky restart, CPU lease
+cleanup, service destruction, role-switch isolation, audio failure, and manifest mediaPlayback type.
+PlayerRegressionTest checks two microphone peers survive stop/start without role reselection or
+injected website pause, full browser expansion/restoration uses the same WebView, HTML5 custom
+fullscreen Back, and touch lock blocks taps plus legacy/modern Back until long-press unlock.
+PlayerHotspotRetentionTest verifies Activity destruction retains the session-owned reservation and
+an explicit session stop closes it.
+
+Device acceptance on vivo V29: connect Samsung A56 plus a second microphone, start a song, test full
+browser and in-page video full screen in portrait/landscape, then use touch lock and attempt accidental
+taps/Back. Verify hold-to-unlock. Turn the screen off for 10 and 30 minutes, test both microphone audio
+and website audio separately, and unlock without reconnecting peers. Repeat with player-created
+hotspot, denied notification permission, Home/app switching, notification Stop, and Activity recreation.
+Third-party website playback is not proven by Robolectric. Check OEM battery policy and service
+notification behavior, and confirm explicit Stop/Home cleans up audio, sockets, hotspot, and wake locks.

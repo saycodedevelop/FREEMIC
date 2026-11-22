@@ -32,7 +32,7 @@ Jika pemutar tidak ditemukan, ketuk status pemutar untuk melihat IP, lalu pilih 
 
 Mikrofon yang terhubung tetap mengirim audio saat layar mati atau aplikasi lain dibuka. Hentikan lewat notifikasi atau tombol **Hentikan mikrofon** di aplikasi. Perekaman tidak dimulai ulang otomatis setelah ponsel dimulai ulang atau proses dihentikan.
 
-Pemutar menjeda audio saat berada di latar belakang atau layar mati; biarkan layar pemutar terbuka.
+Pemutar mempertahankan audio dan koneksi mikrofon di latar belakang; musik dari beberapa situs dapat dijeda sesuai kebijakan situs.
 
 ## Suara dan jaringan
 
@@ -63,7 +63,7 @@ APK debug: `app/build/outputs/apk/debug/app-debug.apk`.
 
 ## Hotspot pemutar dan latensi rendah
 
-Pada pemutar, buka **Pengaturan suara → Hotspot Wi-Fi pemutar → Buat Wi-Fi dari pemutar**. Berikan izin lalu hubungkan setiap mikrofon ke nama Wi-Fi dan kata sandi yang ditampilkan. Kembali ke aplikasi mikrofon dan pilih pemutar. Dua mikrofon tetap didukung. Aplikasi melepas hotspot buatannya saat keluar dari peran pemutar atau Activity dihancurkan.
+Pada pemutar, buka **Pengaturan suara → Hotspot Wi-Fi pemutar → Buat Wi-Fi dari pemutar**. Berikan izin lalu hubungkan setiap mikrofon ke nama Wi-Fi dan kata sandi yang ditampilkan. Kembali ke aplikasi mikrofon dan pilih pemutar. Dua mikrofon tetap didukung. Layanan pemutar mempertahankan hotspot saat Activity dibuat ulang dan melepasnya saat sesi pemutar dihentikan.
 
 Hotspot lokal tidak berbagi Internet; musik daring mungkin memerlukan data seluler dan beberapa ponsel memutus Wi-Fi sebelumnya. Gunakan pengaturan hotspot sistem untuk berbagi Internet atau memilih 5 GHz.
 
@@ -72,3 +72,11 @@ Hotspot lokal tidak berbagi Internet; musik daring mungkin memerlukan data selul
 [Panduan pengujian jeda (Thai)](docs/LATENCY.md)
 
 Saat hotspot siap, layar menampilkan **kode QR Wi-Fi**. Pada setiap mikrofon, buka pengaturan Wi-Fi, pindai kode pada pemutar, konfirmasi koneksi, lalu kembali ke KaraokeLink dan pilih pemutar. Kode dibuat secara lokal dan diperbarui mengikuti informasi hotspot. Aplikasi tidak memerlukan izin kamera.
+
+## Layar penuh, kunci sentuhan, dan pemutar saat layar mati
+
+Ketuk **Layar penuh** di kanan bawah bingkai web untuk memperbesar halaman tanpa memuat ulang. Tombol layar penuh video di halaman juga didukung. Kembali memulihkan tampilan tanpa memutus mikrofon.
+
+**Kunci sentuhan** menampilkan lapisan hitam pencegah sentuhan tidak sengaja. Ketukan singkat dan Kembali tidak menutupnya; tahan **Tahan untuk membuka**. Tombol daya tetap dapat mematikan layar.
+
+Layanan pemutar latar depan mempertahankan audio mikrofon, jaringan, dan hotspot saat layar mati, berpindah aplikasi, atau Activity dibuat ulang. Hentikan lewat notifikasi **Hentikan pemutar** atau konfirmasi kembali ke beranda aplikasi. Beberapa situs menjeda musik di latar belakang/saat layar mati; kunci sentuhan menjaga halaman di latar depan. Musik web tidak dijamin berlanjut setelah Activity dihancurkan. Sesi tidak dimulai ulang otomatis setelah proses dihentikan atau ponsel dimulai ulang.

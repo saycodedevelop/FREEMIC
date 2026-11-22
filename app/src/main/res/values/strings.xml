@@ -167,7 +167,7 @@
     <string name="system_language">System default</string>
     <string name="karaoke_search">karaoke</string>
     <string name="hotspot_title">Player Wi-Fi hotspot</string>
-    <string name="hotspot_hint">Let the player create Wi-Fi and connect microphone phones to it. This local hotspot does not share Internet; online music may need mobile data. Some phones turn off their current Wi-Fi. Keep the player open. For Internet sharing or a 5 GHz option, use system hotspot settings.</string>
+    <string name="hotspot_hint">Let the player create Wi-Fi and connect microphone phones to it. This local hotspot does not share Internet; online music may need mobile data. Some phones turn off their current Wi-Fi. For Internet sharing or a 5 GHz option, use system hotspot settings.</string>
     <string name="hotspot_start">Create player Wi-Fi</string>
     <string name="hotspot_stop">Stop player Wi-Fi</string>
     <string name="hotspot_starting">Creating Wi-Fi…</string>
@@ -181,4 +181,14 @@
     <string name="latency_tips">For a delay check: set added delay to 0 and turn off microphone echo/reverb. Use a nearby, uncongested Wi-Fi network or the player hotspot. Try 5 GHz if available and keep devices close.</string>
     <string name="hotspot_qr_label">Scan to connect to player Wi-Fi</string>
     <string name="hotspot_qr_hint">On the microphone phone, open Wi-Fi settings and tap the QR scanner. Scan this code and confirm connection, then return to KaraokeLink and choose the player. If prompted, stay connected without Internet.</string>
+    <string name="player_fullscreen">Full screen</string>
+    <string name="lock_touch">Lock touch</string>
+    <string name="touch_locked">Touch locked</string>
+    <string name="unlock_touch">Hold to unlock</string>
+    <string name="unlock_touch_hint">Press and hold the button to unlock. A tap or Back will not stop the player. The power button can still turn off the screen.</string>
+    <string name="player_background_hint">Microphone connections stay active with the screen off or another app open. Some websites may pause their music in the background. Use touch lock to keep the player visible while avoiding accidental taps.</string>
+    <string name="player_notification_channel">Background player</string>
+    <string name="player_notification_title">KaraokeLink • Player active</string>
+    <string name="player_notification_active">Microphones: %1$d/2 • Screen-off connection active</string>
+    <string name="stop_player">Stop player</string>
 </resources>

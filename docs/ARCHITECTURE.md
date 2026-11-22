@@ -64,7 +64,7 @@ Capture ไม่ได้ mute เสียงต้นฉบับอัตโ
 - INTERNET, ACCESS_NETWORK_STATE, ACCESS_WIFI_STATE, CHANGE_WIFI_MULTICAST_STATE: LAN และ discovery
 - BLUETOOTH_CONNECT: runtime บน API 31+ เมื่อผู้ใช้เลือก Bluetooth ไม่ใช้ communication mode/SCO เป็นค่าเริ่มต้น
 - MulticastLock ใช้ระหว่าง discovery แล้ว release ทุกครั้งที่ออกจาก session; Host ประกาศ Android NSD `_karaokelink._udp.` ส่วน Mic resolve IPv4 และส่ง UDP discovery แบบ unicast ควบคู่กับ broadcast โดยใช้ source port แยกต่อเครื่อง
-- โหมด Mic ใช้ microphone foreground service หลังได้รับสิทธิ์และผู้ใช้เชื่อมต่อ เครื่อง Host/WebView ยังทำงานเฉพาะ foreground; ไม่มี MediaProjection capture
+- โหมด Mic ใช้ microphone foreground service หลังได้รับสิทธิ์และผู้ใช้เชื่อมต่อ เครื่อง Host ใช้ mediaPlayback foreground service เพื่อคงเสียงไมค์และเครือข่าย ส่วนเพลง WebView ยังขึ้นกับนโยบายเว็บ; ไม่มี MediaProjection capture
 - targetSdk 35 ใช้ permission behavior ปัจจุบันของ target นี้ หากยกระดับ targetSdk เป็น 37+ ต้องเพิ่ม ACCESS_LOCAL_NETWORK runtime flow ตามเอกสาร Android; บนเครื่องที่เปิด local-network restrictions แบบทดสอบต้องตรวจเงื่อนไขเพิ่มเติม
 - route เปลี่ยน/ถอด USB: Oboe error ถูกแสดงบน UI แล้วให้เริ่ม session ใหม่ ไม่ reopen stream บน audio error callback
 
@@ -87,9 +87,9 @@ Control และ PCM เป็น plaintext LAN prototype: nonce/session ใช
 The embedded WebView is the music audio-focus owner. The native host does not register
 a competing focus request that closes the session when the web player starts audio.
 Only an explicit, confirmed Home action changes the selected role to Home.
-On Host stop, the app pauses top-level HTML5 media, WebView, native output, sockets, and discovery locks while retaining the selected role and browser instance.
+On Activity stop, an active player service retains native output, sockets, peers, and discovery locks. The Activity does not inject an HTML5 pause or call WebView.onPause for that live session.
 An active microphone foreground service retains capture and transport across Activity stop/start/destruction.
-On Host start it resumes that role and WebView; Host microphone peers reconnect as needed.
+Returning to a service-owned Host resumes the existing Activity WebView without reselecting the role or disconnecting microphone peers. Activity destruction still destroys its WebView; website playback is not guaranteed across destruction.
 WebView renderer failures offer reload within the same Host screen. Fullscreen video
 uses an overlay, preserving the underlying player and session.
 ## v0.2 microphone service and playout
@@ -100,7 +100,7 @@ to microphone-type foreground before beginning capture. The Activity retains the
 start, and destruction while the microphone service owns it. A persistent notification exposes Stop.
 The service holds a refreshed, timed partial CPU wake lock and best-effort high-performance Wi-Fi lock,
 releasing them on stop, connection failure, device failure, or service destruction. It is not sticky
-and never restarts microphone capture automatically after a process kill. Host/WebView remains foreground-only.
+and never restarts microphone capture automatically after a process kill. Host native audio now uses a foreground player service. Website background media remains subject to browser/site behavior.
 
 The audio callback now owns `PlayoutBuffer`: a bounded 64-slot sequence window fed from a bounded SPSC
 queue. It reorders datagrams, rejects duplicates/foreign sessions, fades short losses, adapts a normal
@@ -111,10 +111,11 @@ Current output buffering defaults to two hardware bursts in low latency mode; st
 and quality still depend on actual devices. Noise gate defaults to off to preserve quiet syllables.
 ## Player hotspot and Wi-Fi routing
 
-The Activity owns a local-only hotspot reservation after an explicit user action. Android 13+ requests
+SessionRuntime owns a local-only hotspot reservation after an explicit user action. Android 13+ requests
 NEARBY_WIFI_DEVICES; older devices request fine and coarse location, and may need Location enabled.
-SSID/passphrase are displayed locally, never logged or added to discovery packets. Leaving Host or
-destroying the Activity closes only the app-owned reservation; delayed callbacks cannot resurrect it.
+SSID/passphrase are displayed locally, never logged or added to discovery packets. The player service
+retains this reservation across Activity destruction. Leaving Host or stopping the player closes only
+the app-owned reservation; delayed callbacks cannot resurrect it.
 The app also offers system hotspot settings for Internet sharing or band selection. A local-only hotspot
 does not provide Internet, and concurrent Wi-Fi/mobile-data behavior depends on the device.
 
@@ -127,3 +128,21 @@ Low latency mode is stored in UI preferences and applied before opening audio. S
 output buffering on the serialized lifecycle thread and applies playout policy in the audio callback.
 Native microphone output uses Oboe Usage::Game, low-latency/exclusive requests, and the existing shared
 fallback. These requests and reserve sizes do not establish actual end-to-end latency; see LATENCY.md.
+
+## Fullscreen, touch lock, and player service
+
+PlayerService is a non-sticky mediaPlayback foreground service started from a visible Host session.
+It holds refreshed timed CPU and high-performance Wi-Fi leases, exposes a Stop player notification,
+and stops an owned session on service destruction or audio failure. Explicit role changes stop the
+service and close the hotspot; restarting a Host audio route preserves the service and hotspot.
+It does not make a competing audio-focus request against WebView.
+
+The Activity keeps the same WebView while moving it into/out of a fullscreen overlay, hides system
+bars, and supports the page's custom fullscreen video view. Back first exits fullscreen. A black touch
+lock consumes accidental taps and Back, requiring a long press to unlock. Android 13+ uses
+OnBackInvokedDispatcher, with the legacy handler retained for older Android versions.
+
+Screen-off does not explicitly pause the website or close microphone connections. Third-party sites
+may still pause media on visibility changes, and the Activity-owned WebView is destroyed if Android
+destroys that Activity. Native microphone connections and the session-owned hotspot survive while the
+foreground service is healthy. Process termination/force-stop is not recovered automatically.

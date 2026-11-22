@@ -167,7 +167,7 @@
     <string name="system_language">ตามภาษาของระบบ</string>
     <string name="karaoke_search">คาราโอเกะ</string>
     <string name="hotspot_title">Wi-Fi hotspot จากเครื่องเล่น</string>
-    <string name="hotspot_hint">ให้เครื่องเล่นสร้าง Wi-Fi แล้วให้เครื่องไมค์ต่อเข้า เครือข่ายนี้ไม่แชร์อินเทอร์เน็ต เพลงออนไลน์อาจต้องใช้เน็ตมือถือ มือถือบางรุ่นจะตัด Wi-Fi เดิม ให้เปิดหน้าเครื่องเล่นค้างไว้ หากต้องการแชร์เน็ตหรือเลือก 5 GHz ให้ใช้การตั้งค่า hotspot ของระบบ</string>
+    <string name="hotspot_hint">ให้เครื่องเล่นสร้าง Wi-Fi แล้วให้เครื่องไมค์ต่อเข้า เครือข่ายนี้ไม่แชร์อินเทอร์เน็ต เพลงออนไลน์อาจต้องใช้เน็ตมือถือ มือถือบางรุ่นจะตัด Wi-Fi เดิม หากต้องการแชร์เน็ตหรือเลือก 5 GHz ให้ใช้การตั้งค่า hotspot ของระบบ</string>
     <string name="hotspot_start">สร้าง Wi-Fi จากเครื่องเล่น</string>
     <string name="hotspot_stop">หยุด Wi-Fi ของเครื่องเล่น</string>
     <string name="hotspot_starting">กำลังสร้าง Wi-Fi…</string>
@@ -181,4 +181,14 @@
     <string name="latency_tips">ตอนทดสอบดีเลย์ ให้ตั้งดีเลย์เพิ่มเป็น 0 และปิด echo/reverb ของไมค์ ใช้ Wi-Fi ที่ไม่แออัดหรือ hotspot ของเครื่องเล่น ลอง 5 GHz หากมี และวางเครื่องใกล้กัน</string>
     <string name="hotspot_qr_label">สแกนเพื่อเชื่อมต่อ Wi-Fi ของเครื่องเล่น</string>
     <string name="hotspot_qr_hint">บนเครื่องไมค์ เปิดการตั้งค่า Wi-Fi แล้วกดปุ่มสแกน QR สแกนโค้ดนี้และยืนยันเชื่อมต่อ จากนั้นกลับเข้า KaraokeLink แล้วเลือกเครื่องเล่น หากระบบถาม ให้คงการเชื่อมต่อแม้ไม่มีอินเทอร์เน็ต</string>
+    <string name="player_fullscreen">เต็มจอ</string>
+    <string name="lock_touch">ล็อกการสัมผัส</string>
+    <string name="touch_locked">ล็อกการสัมผัสแล้ว</string>
+    <string name="unlock_touch">กดค้างเพื่อปลดล็อก</string>
+    <string name="unlock_touch_hint">แตะค้างที่ปุ่มเพื่อปลดล็อก การแตะสั้นหรือกดย้อนกลับจะไม่หยุดเครื่องเล่น ยังใช้ปุ่ม Power ปิดหน้าจอได้</string>
+    <string name="player_background_hint">คงการเชื่อมต่อไมค์เมื่อปิดจอหรือสลับแอป บางเว็บไซต์อาจพักเพลงเมื่ออยู่เบื้องหลัง ใช้ล็อกการสัมผัสหากต้องการเปิดหน้าเพลงไว้และกันแตะพลาด</string>
+    <string name="player_notification_channel">เครื่องเล่นเบื้องหลัง</string>
+    <string name="player_notification_title">KaraokeLink • เครื่องเล่นทำงานอยู่</string>
+    <string name="player_notification_active">ไมค์ %1$d/2 เครื่อง • คงการเชื่อมต่อขณะปิดจอ</string>
+    <string name="stop_player">หยุดเครื่องเล่น</string>
 </resources>

@@ -167,7 +167,7 @@
     <string name="system_language">跟随系统</string>
     <string name="karaoke_search">卡拉OK</string>
     <string name="hotspot_title">播放器 Wi-Fi 热点</string>
-    <string name="hotspot_hint">让播放器创建 Wi-Fi，麦克风手机连接此网络。本地热点不共享互联网；在线音乐可能需要移动数据。部分手机会断开原来的 Wi-Fi。请保持播放器界面打开。如需共享互联网或选择 5 GHz，请使用系统热点设置。</string>
+    <string name="hotspot_hint">让播放器创建 Wi-Fi，麦克风手机连接此网络。本地热点不共享互联网；在线音乐可能需要移动数据。部分手机会断开原来的 Wi-Fi。如需共享互联网或选择 5 GHz，请使用系统热点设置。</string>
     <string name="hotspot_start">创建播放器 Wi-Fi</string>
     <string name="hotspot_stop">停止播放器 Wi-Fi</string>
     <string name="hotspot_starting">正在创建 Wi-Fi…</string>
@@ -181,4 +181,14 @@
     <string name="latency_tips">测试延迟时，将附加延迟设为 0，并关闭麦克风回声和混响。使用附近空闲的 Wi-Fi 或播放器热点。支持时可尝试 5 GHz，并让设备靠近。</string>
     <string name="hotspot_qr_label">扫码连接播放器 Wi-Fi</string>
     <string name="hotspot_qr_hint">在麦克风手机上打开 Wi-Fi 设置并点击扫码按钮。扫描此二维码并确认连接，然后返回 KaraokeLink 选择播放器。如有提示，请保持连接此无互联网网络。</string>
+    <string name="player_fullscreen">全屏</string>
+    <string name="lock_touch">锁定触控</string>
+    <string name="touch_locked">触控已锁定</string>
+    <string name="unlock_touch">长按解锁</string>
+    <string name="unlock_touch_hint">长按按钮解锁。轻点或返回不会停止播放器，电源键仍可关闭屏幕。</string>
+    <string name="player_background_hint">熄屏或切换应用时保持麦克风连接。部分网站可能暂停后台音乐。使用触控锁可保持播放页面打开并防止误触。</string>
+    <string name="player_notification_channel">后台播放器</string>
+    <string name="player_notification_title">KaraokeLink • 播放器运行中</string>
+    <string name="player_notification_active">麦克风：%1$d/2 • 熄屏保持连接</string>
+    <string name="stop_player">停止播放器</string>
 </resources>

@@ -4,6 +4,9 @@
 
 ### [th] ไทย
 
+- เพิ่มปุ่มขยายหน้าเว็บเต็มจอโดยไม่โหลดเพลงใหม่ รองรับเต็มจอวิดีโอและท่าย้อนกลับ Android รุ่นใหม่ พร้อมล็อกการสัมผัสที่ต้องกดค้างเพื่อปลดล็อก
+- เพิ่มบริการเครื่องเล่นเบื้องหลังเพื่อรักษาการเชื่อมต่อไมค์และ hotspot เมื่อปิดจอหรือสลับแอป โดยหยุดผ่านการแจ้งเตือนหรือยืนยันกลับหน้าแรก เพลงบางเว็บไซต์ยังขึ้นกับนโยบายการเล่นเบื้องหลัง
+
 - เพิ่ม QR เชื่อมต่อ Wi-Fi ในหน้า hotspot ของเครื่องเล่น ให้เครื่องไมค์สแกนผ่านการตั้งค่า Wi-Fi โดยไม่ต้องพิมพ์รหัสผ่าน พร้อมอัปเดต/ซ่อนโค้ดตามสถานะ hotspot
 
 - เพิ่ม hotspot Wi-Fi จากเครื่องเล่น แสดงชื่อและรหัสผ่าน พร้อมทางลัดการตั้งค่า hotspot ของระบบ และจัดการสิทธิ์ตามรุ่น Android
@@ -17,6 +20,9 @@
 - เพิ่ม README ครบห้าภาษาพร้อมลิงก์สลับภาษา และสร้าง Release จากรายการเปลี่ยนแปลงที่แปลครบทั้งห้าภาษา
 
 ### [en] English
+
+- Add full-page browser expansion without reloading, video full screen, modern Android Back handling, and a touch lock requiring a long press to unlock.
+- Add a foreground player service that retains microphone connections and hotspot while screen-off or backgrounded; stop through the notification or confirmed Home action. Website background playback still depends on the site.
 
 - Show a locally generated Wi-Fi QR code on the player hotspot screen so microphones can join using the system Wi-Fi scanner; update or hide the code with hotspot state.
 
@@ -32,6 +38,9 @@
 
 ### [zh-CN] 简体中文
 
+- 增加不重新加载的网页全屏、视频全屏、新版 Android 返回手势处理，以及需长按解锁的触控锁。
+- 增加播放器前台服务，在熄屏或后台保留麦克风连接和热点，可通过通知或确认返回主页停止；网页后台播放仍取决于网站。
+
 - 在播放器热点页面显示本地生成的 Wi-Fi 二维码，麦克风可使用系统 Wi-Fi 扫码连接；二维码随热点状态更新或隐藏。
 
 - 增加播放器本地 Wi-Fi 热点，显示连接信息，提供系统热点设置入口，并按 Android 版本处理权限。
@@ -46,6 +55,9 @@
 
 ### [vi] Tiếng Việt
 
+- Thêm mở rộng trang web không tải lại, toàn màn hình video, xử lý Quay lại trên Android mới và khóa cảm ứng cần nhấn giữ để mở.
+- Thêm dịch vụ tiền cảnh giữ kết nối micro và điểm phát khi tắt màn hình/chạy nền; dừng từ thông báo hoặc xác nhận về trang chủ. Nhạc web chạy nền vẫn tùy trang.
+
 - Hiển thị mã QR Wi-Fi tạo cục bộ trên màn hình điểm phát để micro kết nối bằng trình quét Wi-Fi của hệ thống; cập nhật hoặc ẩn mã theo trạng thái điểm phát.
 
 - Thêm điểm phát Wi-Fi cục bộ từ máy phát nhạc với thông tin kết nối, lối tắt cài đặt hệ thống và quyền theo phiên bản Android.
@@ -59,6 +71,9 @@
 - Thêm README năm ngôn ngữ với liên kết chuyển ngôn ngữ và tạo ghi chú phát hành từ nhật ký đã dịch đủ năm ngôn ngữ.
 
 ### [id] Bahasa Indonesia
+
+- Tambahkan perluasan halaman tanpa memuat ulang, layar penuh video, penanganan Kembali Android terbaru, dan kunci sentuhan yang memerlukan tekan lama untuk membuka.
+- Tambahkan layanan pemutar latar depan yang mempertahankan koneksi mikrofon dan hotspot saat layar mati/berada di latar belakang; hentikan lewat notifikasi atau konfirmasi Beranda. Pemutaran web di latar belakang tetap bergantung pada situs.
 
 - Tampilkan kode QR Wi-Fi yang dibuat secara lokal pada layar hotspot agar mikrofon dapat bergabung lewat pemindai Wi-Fi sistem; perbarui atau sembunyikan kode sesuai status hotspot.
 

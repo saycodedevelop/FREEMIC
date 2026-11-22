@@ -32,7 +32,7 @@ If discovery fails, tap the player status to find its IP, then choose **Connect 
 
 A connected microphone keeps sending audio with its screen off or another app open. Stop from the notification or the in-app **Stop microphone** button. Recording never restarts automatically after reboot or process termination.
 
-The player pauses audio when backgrounded or its screen is off; keep its player screen open.
+The player retains microphone audio and connections in the background. Music from some websites may pause according to the site policy.
 
 ## Sound and network
 
@@ -63,7 +63,7 @@ Debug APK: `app/build/outputs/apk/debug/app-debug.apk`.
 
 ## Player hotspot and low latency
 
-On the player, open **Sound settings → Player Wi-Fi hotspot → Create player Wi-Fi**. Grant the requested permission and connect each microphone to the displayed Wi-Fi name and password. Return to the microphone app and select the player. Two microphones are still supported. The app releases its hotspot when leaving the player role or destroying the Activity.
+On the player, open **Sound settings → Player Wi-Fi hotspot → Create player Wi-Fi**. Grant the requested permission and connect each microphone to the displayed Wi-Fi name and password. Return to the microphone app and select the player. Two microphones are still supported. The player service owns the hotspot across Activity recreation and releases it when the player session stops.
 
 The app hotspot does not share Internet; online music may need mobile data, and some phones disconnect their previous Wi-Fi. Use system hotspot settings for Internet sharing or a 5 GHz option.
 
@@ -72,3 +72,11 @@ The app hotspot does not share Internet; online music may need mobile data, and 
 [Delay testing guide (Thai)](docs/LATENCY.md)
 
 Once the hotspot is ready, its screen displays a **Wi-Fi QR code**. On each microphone, open Wi-Fi settings, scan the player code, confirm connection, then return to KaraokeLink and choose the player. The code is generated locally and updates with the hotspot credentials. No in-app camera permission is needed.
+
+## Full screen, touch lock, and screen-off player
+
+Tap **Full screen** at the lower-right of the web frame to expand the current page without reloading it. In-page video full screen is also supported. Back restores the normal layout without disconnecting microphones.
+
+**Lock touch** displays a black touch-blocking overlay. Taps and Back do not dismiss it; hold **Hold to unlock**. The power button can still turn the screen off.
+
+A foreground player service retains microphone audio, networking, and the app hotspot while the screen is off, another app is open, or the Activity is recreated. Stop through the **Stop player** notification or confirmed in-app Home action. Some websites pause music when backgrounded or screen-off; touch lock keeps the page in the foreground. Website playback is not guaranteed after Activity destruction. Sessions never restart automatically after process termination or reboot.

@@ -32,7 +32,7 @@ Nếu không tìm thấy, chạm trạng thái máy phát nhạc để xem IP, r
 
 Micro đã kết nối tiếp tục gửi âm thanh khi tắt màn hình hoặc chuyển ứng dụng. Dừng từ thông báo hoặc nút **Dừng micro** trong ứng dụng. Không tự ghi âm lại sau khi khởi động lại máy hoặc tiến trình bị đóng.
 
-Máy phát nhạc tạm dừng âm thanh khi chạy nền hoặc tắt màn hình; hãy giữ màn hình phát nhạc mở.
+Máy phát nhạc giữ âm thanh và kết nối micro khi chạy nền; nhạc của một số trang có thể tạm dừng theo chính sách của trang.
 
 ## Âm thanh và mạng
 
@@ -63,7 +63,7 @@ APK gỡ lỗi: `app/build/outputs/apk/debug/app-debug.apk`.
 
 ## Điểm phát của máy phát nhạc và độ trễ thấp
 
-Trên máy phát nhạc, mở **Cài đặt âm thanh → Điểm phát Wi-Fi của máy phát nhạc → Tạo Wi-Fi từ máy phát nhạc**. Cấp quyền và kết nối từng micro vào tên Wi-Fi cùng mật khẩu được hiển thị. Quay lại ứng dụng micro và chọn máy phát nhạc. Vẫn hỗ trợ hai micro. Ứng dụng giải phóng điểm phát khi rời chế độ phát nhạc hoặc Activity bị hủy.
+Trên máy phát nhạc, mở **Cài đặt âm thanh → Điểm phát Wi-Fi của máy phát nhạc → Tạo Wi-Fi từ máy phát nhạc**. Cấp quyền và kết nối từng micro vào tên Wi-Fi cùng mật khẩu được hiển thị. Quay lại ứng dụng micro và chọn máy phát nhạc. Vẫn hỗ trợ hai micro. Dịch vụ giữ điểm phát khi Activity được tạo lại và giải phóng khi phiên phát nhạc dừng.
 
 Điểm phát cục bộ không chia sẻ Internet; nhạc trực tuyến có thể cần dữ liệu di động và một số máy ngắt Wi-Fi trước đó. Dùng cài đặt hệ thống để chia sẻ Internet hoặc chọn 5 GHz.
 
@@ -72,3 +72,11 @@ Trên máy phát nhạc, mở **Cài đặt âm thanh → Điểm phát Wi-Fi c�
 [Hướng dẫn kiểm tra độ trễ (tiếng Thái)](docs/LATENCY.md)
 
 Khi điểm phát sẵn sàng, màn hình hiển thị **mã QR Wi-Fi**. Trên từng máy micro, mở cài đặt Wi-Fi, quét mã trên máy phát nhạc, xác nhận kết nối rồi quay lại KaraokeLink để chọn máy phát nhạc. Mã được tạo cục bộ và cập nhật theo thông tin điểm phát, không cần cấp quyền camera cho ứng dụng.
+
+## Toàn màn hình, khóa cảm ứng và tắt màn hình máy phát nhạc
+
+Nhấn **Toàn màn hình** ở góc dưới bên phải khung web để mở rộng trang hiện tại mà không tải lại. Nút toàn màn hình video trên web cũng được hỗ trợ. Quay lại khôi phục bố cục mà không ngắt micro.
+
+**Khóa cảm ứng** hiển thị lớp đen chống chạm nhầm. Chạm nhanh và Quay lại không đóng lớp này; nhấn giữ **Nhấn giữ để mở khóa**. Nút nguồn vẫn tắt được màn hình.
+
+Dịch vụ tiền cảnh của máy phát nhạc giữ âm thanh micro, mạng và điểm phát khi tắt màn hình, đổi ứng dụng hoặc Activity được tạo lại. Dừng từ thông báo **Dừng máy phát nhạc** hoặc xác nhận về trang chủ. Một số trang tạm dừng nhạc chạy nền/tắt màn hình; khóa cảm ứng giữ trang ở tiền cảnh. Không bảo đảm nhạc web tiếp tục sau khi Activity bị hủy. Phiên không tự khởi động lại sau khi tiến trình bị đóng hoặc máy khởi động lại.
