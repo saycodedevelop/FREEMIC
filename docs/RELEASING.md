@@ -1,7 +1,7 @@
 # Release process
 
 Published builds use semantic versions: **KaraokeLink v0.2.0**, `v0.2.0`, and `KaraokeLink-0.2.0.apk`.
-They are signed release APKs, accompanied by SHA-256 checksums and Thai release notes.
+They are signed release APKs, accompanied by SHA-256 checksums and release notes in Thai, English, Simplified Chinese, Vietnamese, and Indonesian.
 
 ## Automatic publishing
 
@@ -16,7 +16,13 @@ already tagged on the same commit for reruns. Increase `appVersion` to request a
 The Android versionCode is `major * 1,000,000 + minor * 1,000 + patch` and increases with the version.
 Published release assets are immutable; reruns only repair unpublished drafts.
 
-Update `CHANGELOG.md` before pushing. Release notes are generated from its Unreleased section.
+Update the Unreleased section in `CHANGELOG.md` before pushing. Keep all five translation blocks: `### [th]`, `### [en]`, `### [zh-CN]`, `### [vi]`, and `### [id]`. Each block must contain the same changes in its own language. Historical release sections remain unchanged.
+
+The generator combines those changes with the installation and validation templates in `docs/release-notes/`. Missing, empty, duplicate, or unknown translation blocks fail generation. Review all five translations whenever release content changes; generation does not translate new prose automatically.
+
+Preview all languages with `python scripts/release_notes.py 0.4.1 --output release-notes-preview.md`. Use `--language en` (or `th`, `zh-CN`, `vi`, `id`) for a single-language preview. The workflow uses `--output` to write UTF-8 Markdown and publishes all five languages in one release with language navigation links.
+
+README translations are `README.md` (Thai), `README.en.md`, `README.zh-CN.md`, `README.vi.md`, and `README.id.md`. Keep their setup, device requirements, and limitations aligned. Supporting technical documents retain their existing languages, noted in the translated README links.
 
 ## Signing
 

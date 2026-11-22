@@ -145,7 +145,7 @@
     <string name="connected_mics">Micrô đã kết nối: %1$d/2</string>
     <string name="ready_sing">Sẵn sàng phát nhạc và hát • Nhấn để xem cách kết nối micrô</string>
     <string name="player_ready">Máy phát sẵn sàng</string>
-    <string name="waiting_mic">Đang chờ micrô • Nhấn để xem cách kết nối</string>
+    <string name="waiting_mic">Đang chờ mic (tối đa 2 điện thoại) • Nhấn để xem hướng dẫn kết nối</string>
     <string name="mic_ready">Micrô sẵn sàng</string>
     <string name="streaming">Đang truyền âm thanh • Có thể hát khi tắt màn hình</string>
     <string name="connected_player">Đã kết nối máy phát</string>

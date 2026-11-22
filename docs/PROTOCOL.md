@@ -1,12 +1,14 @@
 # KaraokeLink protocol v1
 
-ใช้ IPv4 UDP บน LAN เดียวกัน Port คงที่ ไม่มี DNS หรือ Internet signaling
+ใช้ IPv4 UDP บน LAN เดียวกัน Port คงที่สำหรับ Host; ใช้ Android NSD (DNS-SD/mDNS) และ UDP broadcast โดยไม่ใช้ Internet signaling
 
 | Channel | Port | Payload |
 |---|---:|---|
 | Discovery | 40101 | UTF-8 `KL1 DISCOVER`, Host ตอบ unicast `KL1 HOST <model>` |
 | Control | 40100 บน Host | UTF-8, ขนาดรับไม่เกิน 512 bytes; Mic bind ephemeral port |
 | Audio | 40102 บน Host | Binary fixed 504 bytes |
+
+Host ประกาศบริการ `_karaokelink._udp.` ที่ control port 40100 ส่วน Mic ค้นหาบริการและ resolve IPv4 จากนั้นส่ง `KL1 DISCOVER` แบบ unicast ไปยัง discovery port 40101 ควบคู่กับ broadcast ทุก 1.5 วินาที รายการ Host จะอัปเดตเมื่อได้รับ `KL1 HOST` จริงเท่านั้น จึงไม่แสดงเครื่องจาก NSD cache ที่ติดต่อไม่ได้ Mic ใช้ discovery source port แบบ ephemeral แยกกัน และ Host ตอบกลับไปยัง source port นั้น รุ่นเดิมที่มีเฉพาะ broadcast ยังใช้งานร่วมกันได้
 
 ## Control
 

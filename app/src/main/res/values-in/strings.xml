@@ -145,7 +145,7 @@
     <string name="connected_mics">Mikrofon terhubung: %1$d/2</string>
     <string name="ready_sing">Siap memutar dan bernyanyi • Ketuk untuk panduan koneksi mikrofon</string>
     <string name="player_ready">Pemutar siap</string>
-    <string name="waiting_mic">Menunggu mikrofon • Ketuk untuk panduan koneksi</string>
+    <string name="waiting_mic">Menunggu mikrofon (hingga 2 ponsel) • Ketuk untuk bantuan koneksi</string>
     <string name="mic_ready">Mikrofon siap</string>
     <string name="streaming">Mengirim audio • Tetap bernyanyi saat layar mati</string>
     <string name="connected_player">Terhubung ke pemutar</string>

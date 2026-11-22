@@ -65,7 +65,7 @@ jobs:
           mkdir -p release
           cp app/build/outputs/apk/release/app-release.apk "release/KaraokeLink-$VERSION.apk"
           (cd release && sha256sum "KaraokeLink-$VERSION.apk" > SHA256SUMS.txt)
-          python3 scripts/release_notes.py "$VERSION" > release/RELEASE_NOTES.md
+          python3 scripts/release_notes.py "$VERSION" --output release/RELEASE_NOTES.md
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         with:

@@ -145,7 +145,7 @@
     <string name="connected_mics">Microphones connected: %1$d/2</string>
     <string name="ready_sing">Ready to play and sing • Tap for microphone connection help</string>
     <string name="player_ready">Player ready</string>
-    <string name="waiting_mic">Waiting for a microphone • Tap for connection help</string>
+    <string name="waiting_mic">Waiting for microphones (up to 2 phones) • Tap for connection help</string>
     <string name="mic_ready">Microphone ready</string>
     <string name="streaming">Sending audio • Keep singing with the screen off</string>
     <string name="connected_player">Connected to player</string>

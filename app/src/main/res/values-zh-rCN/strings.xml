@@ -145,7 +145,7 @@
     <string name="connected_mics">已连接麦克风：%1$d/2</string>
     <string name="ready_sing">可以播放音乐并唱歌 • 点按查看麦克风连接帮助</string>
     <string name="player_ready">播放器已就绪</string>
-    <string name="waiting_mic">等待麦克风 • 点按查看连接帮助</string>
+    <string name="waiting_mic">等待麦克风（最多 2 台手机）• 点击查看连接帮助</string>
     <string name="mic_ready">麦克风已就绪</string>
     <string name="streaming">正在发送声音 • 熄屏后可继续唱歌</string>
     <string name="connected_player">已连接播放器</string>

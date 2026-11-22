@@ -145,7 +145,7 @@
     <string name="connected_mics">เชื่อมต่อไมค์ %1$d/2 เครื่อง</string>
     <string name="ready_sing">พร้อมเปิดเพลงและร้องได้เลย • แตะดูวิธีเชื่อมไมค์</string>
     <string name="player_ready">เครื่องเล่นพร้อมแล้ว</string>
-    <string name="waiting_mic">รอเครื่องไมค์ • แตะดูวิธีเชื่อมต่อ</string>
+    <string name="waiting_mic">รอเครื่องไมค์ (พร้อมกันได้ 2 เครื่อง) • แตะดูวิธีเชื่อมต่อ</string>
     <string name="mic_ready">ไมค์พร้อมร้อง</string>
     <string name="streaming">ส่งเสียงอยู่ • ปิดหน้าจอร้องต่อได้</string>
     <string name="connected_player">เชื่อมต่อเครื่องเล่นแล้ว</string>

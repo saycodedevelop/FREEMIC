@@ -67,3 +67,18 @@ checks that connection errors and background microphone readiness use accurate u
 in `app/build/reports/ui-preview`; it also verifies visible role choices and minimum touch height.
 Review Thai text, large font settings, portrait/landscape player area, guide scrolling, and TalkBack
 headings/state announcements on a real device. UI previews use fake session state and do not play audio.
+## LAN discovery and two-microphone regression
+
+`NsdDiscoveryTest` checks advertisement cleanup, serialized resolution and retry, IPv4 filtering,
+service loss, refresh, and stale callbacks on API 32 and 35 with a fake NSD daemon.
+`LanTransportTest` disables all broadcasts and uses real loopback UDP sockets to verify two independent
+microphones discover and connect to one host using NSD candidates and unicast probes.
+`HostSessionsTest` verifies two distinct sessions, independent heartbeats/disconnects, duplicate CONNECT,
+full capacity, source validation, and immediate reclamation of expired slots.
+
+Device acceptance: install the updated APK on the player and both microphone phones, connect all three
+to the same non-guest Wi-Fi, and keep the player open. Both microphones must list the player, connect,
+and produce simultaneous audible input; the player should show 2/2. Stop one microphone and verify the
+other continues. Reconnect it without restarting the player. Repeat with broadcast filtered but mDNS
+and unicast allowed, an unsuccessful connection followed by retry, and a Wi-Fi reconnect. AP/client
+isolation still requires changing router settings; manual IP also needs working device-to-device traffic.

@@ -6,6 +6,7 @@ import android.net.wifi.WifiManager
 import android.os.SystemClock
 import com.karaokelink.core.audio.NativeAudio
 import com.karaokelink.core.network.LanTransport
+import com.karaokelink.core.network.HostSessions
 import com.karaokelink.domain.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
@@ -25,7 +26,7 @@ class AndroidSessionRepository(context: Context) : SessionRepository {
     override val state = mutable.asStateFlow()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val native = NativeAudio()
-    private val lan = LanTransport()
+    private val lan = LanTransport(appContext)
     private val wifi = context.applicationContext.getSystemService(WifiManager::class.java)
     private var lock: WifiManager.MulticastLock? = null
     private var timer: Job? = null
@@ -38,8 +39,7 @@ class AndroidSessionRepository(context: Context) : SessionRepository {
     private var lastReply = 0L
     private var lastConnect = 0L
     private var pendingPing = ""
-    private data class Peer(val id: Int, val ip: InetAddress, val port: Int, val nonce: String, var seen: Long)
-    private val peers = mutableListOf<Peer>()
+    private val peers = HostSessions(::now, native::allowPeer, native::removePeer) { message, ip, port -> lan.command(message, ip, port) }
     private val random = SecureRandom()
 
     init {
@@ -61,6 +61,7 @@ class AndroidSessionRepository(context: Context) : SessionRepository {
     override suspend fun select(mode: Mode) {
         reset()
         mutable.value = SessionState(mode = mode, status = if (mode == Mode.HOST) "กำลังเปิด Host" else "กำลังค้นหา Host ใน Wi-Fi")
+        if (mode == Mode.HOME) { mutable.value = SessionState(); return }
         try {
             lock = wifi.createMulticastLock("KaraokeLink.discovery").apply { setReferenceCounted(false); acquire() }
             if (mode == Mode.HOST) check(native.startHost(output)) { "เปิด audio output ไม่สำเร็จ" }
@@ -81,6 +82,9 @@ class AndroidSessionRepository(context: Context) : SessionRepository {
         if (parts.size != 4 || parts.any { part -> part.isEmpty() || part.any { !it.isDigit() } || part.toIntOrNull() !in 0..255 }) {
             mutable.update { it.copy(status = "กรุณากรอก IPv4 เช่น 192.168.1.10") }; return
         }
+        // A failed/ended microphone session closes transport. Reopen it before retrying.
+        if (timer == null) select(Mode.MIC)
+        if (timer == null) return
         if (!backgroundRequested || !MicrophoneService.running) {
             backgroundRequested = true
             try { MicrophoneService.start(appContext, ip.trim()) }
@@ -102,24 +106,7 @@ class AndroidSessionRepository(context: Context) : SessionRepository {
         val p = message.split(' ')
         if (p.size < 3 || p[0] != "KL1") return
         if (state.value.mode == Mode.HOST) {
-            if (p[1] == "CONNECT" && p.size == 3 && p[2].length in 1..32) {
-                var peer = peers.find { it.ip == ip && it.port == port && it.nonce == p[2] }
-                if (peer == null) {
-                    if (peers.size >= 2) { lan.command("KL1 FULL ${p[2]}", ip, port); return }
-                    var id: Int
-                    do { id = random.nextInt(Int.MAX_VALUE - 1) + 1 } while (peers.any { it.id == id })
-                    if (!native.allowPeer(id, ip.hostAddress!!)) return
-                    peer = Peer(id, ip, port, p[2], now()); peers += peer
-                }
-                peer.seen = now()
-                lan.command("KL1 ACCEPT ${peer.nonce} ${peer.id}", ip, port)
-            } else {
-                val id = p[2].toIntOrNull() ?: return
-                val peer = peers.find { it.id == id && it.ip == ip && it.port == port } ?: return
-                if (p[1] == "PING" && p.size == 4 && p[3].length < 24) {
-                    peer.seen = now(); lan.command("KL1 PONG $id ${p[3]}", ip, port)
-                } else if (p[1] == "BYE") { native.removePeer(id); peers.remove(peer) }
-            }
+            peers.receive(p, ip, port)
             mutable.update { it.copy(peers = peers.size) }
         } else if (state.value.mode == Mode.MIC && ip == target && port == LanTransport.CONTROL) {
             when (p[1]) {
@@ -144,7 +131,7 @@ class AndroidSessionRepository(context: Context) : SessionRepository {
     }
     private fun tick() {
         val time = now()
-        peers.filter { time - it.seen > 4000 }.toList().forEach { native.removePeer(it.id); peers.remove(it) }
+        peers.expire()
         if (target != null) {
             if (time - lastReply > 4000) {
                 disconnectMic(); mutable.update { it.copy(status = "Host ไม่ตอบกลับ กรุณาเชื่อมต่อใหม่", peers = 0, rttMs = null) }

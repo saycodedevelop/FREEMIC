@@ -2,12 +2,50 @@
 
 ## [Unreleased]
 
-### Five-language support
+### [th] ไทย
 
-- Added Thai, English, Simplified Chinese, Vietnamese and Indonesian for controls, onboarding, connection guidance, accessibility labels and microphone notifications.
-- Follow the system language by default, with a saved language choice on the home screen and Android 13 app-language settings.
-- Keep backend diagnostics separate from translated connection messages.
+- ค้นหาเครื่องเล่นด้วย Android NSD/mDNS ควบคู่กับ UDP broadcast และยืนยันด้วย unicast พร้อมแสดงยี่ห้อ รุ่น และ IP ของเครื่องเล่น
+- แยกพอร์ตค้นหาและเซสชันของไมค์ 2 เครื่อง ให้เชื่อมต่อพร้อมกันและหยุดแต่ละเครื่องได้อย่างอิสระ
+- เปิดระบบเครือข่ายกลับมาก่อนเชื่อมต่อซ้ำหลังล้มเหลว และคืนช่องไมค์ที่หมดเวลาทันทีเมื่อมีคำขอเชื่อมต่อใหม่
+- เพิ่มการทดสอบวงจร NSD, UDP จริงสำหรับไมค์สองเครื่อง, การลองเชื่อมต่อซ้ำ และการตัดการเชื่อมต่อแยกเครื่อง
+- รองรับภาษาไทย อังกฤษ จีนตัวย่อ เวียดนาม และอินโดนีเซียในปุ่ม คู่มือ การแจ้งเตือน และข้อความเชื่อมต่อ โดยใช้ภาษาตามมือถือหรือเลือกเองจากหน้าแรกและการตั้งค่า Android 13 ขึ้นไป
+- เพิ่ม README ครบห้าภาษาพร้อมลิงก์สลับภาษา และสร้าง Release จากรายการเปลี่ยนแปลงที่แปลครบทั้งห้าภาษา
 
+### [en] English
+
+- Discover players with Android NSD/mDNS alongside UDP broadcast and confirm them by unicast; show the player's manufacturer, model, and IP.
+- Give two microphones independent discovery ports and sessions for simultaneous connections and separate disconnects.
+- Reopen transport before retrying a failed connection, and reclaim expired microphone slots immediately on a new connection request.
+- Add regression coverage for NSD lifecycle, two microphones over real UDP, retries, and independent disconnects.
+- Support Thai, English, Simplified Chinese, Vietnamese, and Indonesian across controls, guidance, notifications, and connection messages; follow the phone language or choose an override on Home or in Android 13+ app settings.
+- Add five README translations with language links and generate releases from changes translated into all five languages.
+
+### [zh-CN] 简体中文
+
+- 使用 Android NSD/mDNS 和 UDP 广播搜索播放器，通过单播确认，并显示播放器的品牌、型号和 IP。
+- 为两台麦克风分配独立搜索端口和会话，支持同时连接及单独断开。
+- 连接失败后重试前重新开启网络传输，并在收到新连接请求时立即回收已超时的麦克风位置。
+- 增加 NSD 生命周期、真实 UDP 双麦克风连接、重试及独立断开的回归测试。
+- 控件、指南、通知和连接信息支持泰语、英语、简体中文、越南语和印度尼西亚语；可跟随手机语言，或在主页及 Android 13 以上的应用设置中选择语言。
+- 提供五种语言的 README 和切换链接，并根据五种语言的更新日志生成发布说明。
+
+### [vi] Tiếng Việt
+
+- Tìm máy phát nhạc bằng Android NSD/mDNS cùng UDP broadcast, xác nhận bằng unicast và hiển thị hãng, mẫu máy cùng IP.
+- Hai micro có cổng tìm kiếm và phiên riêng để kết nối đồng thời và ngắt từng máy độc lập.
+- Mở lại truyền tải mạng trước khi thử kết nối lại sau lỗi và thu hồi ngay vị trí micro đã hết thời gian khi có yêu cầu kết nối mới.
+- Thêm kiểm thử hồi quy cho vòng đời NSD, hai micro qua UDP thật, thử lại và ngắt kết nối độc lập.
+- Hỗ trợ tiếng Thái, Anh, Trung giản thể, Việt và Indonesia cho điều khiển, hướng dẫn, thông báo và kết nối; theo ngôn ngữ điện thoại hoặc chọn tại trang chủ hay cài đặt ứng dụng Android 13 trở lên.
+- Thêm README năm ngôn ngữ với liên kết chuyển ngôn ngữ và tạo ghi chú phát hành từ nhật ký đã dịch đủ năm ngôn ngữ.
+
+### [id] Bahasa Indonesia
+
+- Temukan pemutar dengan Android NSD/mDNS bersama siaran UDP, konfirmasi lewat unicast, serta tampilkan merek, model, dan IP.
+- Berikan port pencarian dan sesi terpisah untuk dua mikrofon agar dapat terhubung bersamaan dan diputus secara mandiri.
+- Buka kembali transport jaringan sebelum mencoba ulang koneksi yang gagal dan segera kosongkan slot mikrofon kedaluwarsa saat ada permintaan koneksi baru.
+- Tambahkan pengujian regresi untuk siklus NSD, dua mikrofon melalui UDP nyata, percobaan ulang, dan pemutusan terpisah.
+- Dukung bahasa Thai, Inggris, Mandarin Sederhana, Vietnam, dan Indonesia pada kontrol, panduan, notifikasi, dan pesan koneksi; ikuti bahasa ponsel atau pilih di beranda maupun pengaturan aplikasi Android 13 ke atas.
+- Tambahkan README dalam lima bahasa beserta tautan pilihan bahasa dan buat catatan rilis dari perubahan yang telah diterjemahkan ke kelima bahasa.
 ## [0.3.1]
 
 ### เก็บรายละเอียดหน้าตาและการใช้งาน

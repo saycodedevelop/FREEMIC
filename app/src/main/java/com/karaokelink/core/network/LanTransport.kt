@@ -1,13 +1,18 @@
 package com.karaokelink.core.network
 
-import android.os.Build
+import android.content.Context
+import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.*
 import java.net.*
 import java.util.Collections
 
 /** Discovery 40101, control 40100, native PCM 40102. One owner per APK process. */
-class LanTransport {
+class LanTransport(context: Context, private val broadcastTargets: () -> Set<InetAddress> = ::lanBroadcasts) {
     companion object { const val CONTROL = 40100; const val DISCOVERY = 40101 }
+    private val candidates = ConcurrentHashMap<String, Set<InetAddress>>()
+    private val nsd = NsdDiscovery(context) { name, addresses ->
+        if (addresses.isEmpty()) candidates.remove(name) else candidates[name] = addresses
+    }
     private var scope: CoroutineScope? = null
     private var discovery: DatagramSocket? = null
     private var control: DatagramSocket? = null
@@ -23,15 +28,19 @@ class LanTransport {
             control = DatagramSocket(if (host) CONTROL else 0).apply { soTimeout = 500 }
             discovery = DatagramSocket(null).apply {
                 reuseAddress = true; broadcast = true
-                bind(InetSocketAddress(DISCOVERY)); soTimeout = 500
+                bind(InetSocketAddress(if (host) DISCOVERY else 0)); soTimeout = 500
             }
             val controlSocket = control!!
             val discoverySocket = discovery!!
             owner.launch { receive(controlSocket, false, host) }
             owner.launch { receive(discoverySocket, true, host) }
+            nsd.start(host)
             if (!host) owner.launch {
                 while (isActive) {
-                    for (address in broadcasts()) send(discovery, "KL1 DISCOVER", address, DISCOVERY)
+                    nsd.refresh()
+                    // NSD candidates are probed by unicast, so blocked broadcasts do not hide the player.
+                    for (address in broadcastTargets() + candidates.values.flatten())
+                        send(discoverySocket, "KL1 DISCOVER", address, DISCOVERY)
                     delay(1500)
                 }
             }
@@ -46,7 +55,7 @@ class LanTransport {
                 val message = String(packet.data, 0, packet.length, Charsets.UTF_8)
                 if (isDiscovery) {
                     if (host && message == "KL1 DISCOVER") {
-                        send(socket, "KL1 HOST ${Build.MODEL.take(60)}", packet.address, packet.port)
+                        send(socket, "KL1 HOST ${DeviceName.current()}", packet.address, packet.port)
                     } else if (!host && message.startsWith("KL1 HOST ")) {
                         onHost(packet.address.hostAddress!!, message.removePrefix("KL1 HOST "))
                     }
@@ -67,18 +76,19 @@ class LanTransport {
             socket?.send(DatagramPacket(bytes, bytes.size, ip, port))
         } catch (e: Exception) { if (socket?.isClosed == false) onError(e.message ?: "UDP send failed") }
     }
-    private fun broadcasts(): Set<InetAddress> = buildSet {
-        add(InetAddress.getByName("255.255.255.255"))
-        runCatching {
-            for (network in Collections.list(NetworkInterface.getNetworkInterfaces())) {
-                if (network.isUp && !network.isLoopback)
-                    network.interfaceAddresses.mapNotNullTo(this) { it.broadcast }
-            }
-        }
-    }
     fun stop() {
+        nsd.stop(); candidates.clear()
         scope?.cancel(); scope = null
         discovery?.close(); control?.close()
         discovery = null; control = null
+    }
+}
+private fun lanBroadcasts(): Set<InetAddress> = buildSet {
+    add(InetAddress.getByName("255.255.255.255"))
+    runCatching {
+        for (network in Collections.list(NetworkInterface.getNetworkInterfaces())) {
+            if (network.isUp && !network.isLoopback)
+                network.interfaceAddresses.mapNotNullTo(this) { it.broadcast }
+        }
     }
 }

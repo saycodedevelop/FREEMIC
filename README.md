@@ -1,5 +1,7 @@
 # KaraokeLink
 
+[ไทย](README.md) · [English](README.en.md) · [简体中文](README.zh-CN.md) · [Tiếng Việt](README.vi.md) · [Bahasa Indonesia](README.id.md)
+
 [![Build](https://github.com/saycodedevelop/FREEMIC/actions/workflows/android.yml/badge.svg)](https://github.com/saycodedevelop/FREEMIC/actions/workflows/android.yml)
 [![Release](https://img.shields.io/github/v/release/saycodedevelop/FREEMIC)](https://github.com/saycodedevelop/FREEMIC/releases/latest)
 
@@ -19,9 +21,9 @@
 
 ภาพจากการเรนเดอร์ Android ด้วยสถานะจำลอง · [คู่มือผู้ใช้ใหม่](docs/USER_GUIDE.md)
 
-## Languages
+## ภาษา
 
-Thai, English, Simplified Chinese, Vietnamese and Indonesian are included. The app follows your phone’s language and uses English for unsupported languages. Choose **Language** on the home screen to save an override, or use Android 13+ app-language settings. Change language before starting a player or microphone session.
+รองรับภาษาไทย อังกฤษ จีนตัวย่อ เวียดนาม และอินโดนีเซีย แอปใช้ภาษาตามมือถือและใช้ภาษาอังกฤษเมื่อไม่รองรับภาษาของเครื่อง เลือก **ภาษา** ที่หน้าแรกเพื่อบันทึกภาษาที่ต้องการ หรือใช้การตั้งค่าภาษาแอปบน Android 13 ขึ้นไป เปลี่ยนภาษาก่อนเริ่มใช้งานเครื่องเล่นหรือไมค์
 
 ## เริ่มใช้งาน
 
@@ -73,3 +75,15 @@ Debug APK อยู่ที่ `app/build/outputs/apk/debug/app-debug.apk`
 - [โปรโตคอล LAN](docs/PROTOCOL.md)
 - [การทดสอบบนมือถือจริง](docs/TESTING.md)
 - [กระบวนการ release](docs/RELEASING.md)
+
+## การค้นหาเครื่องเล่นและไมค์หลายเครื่อง
+
+เครื่องเล่น 1 เครื่องรับไมค์พร้อมกันได้ **2 เครื่อง** ให้ติดตั้ง APK รุ่นที่แก้แล้วบนทั้งสามเครื่อง
+เปิดโหมดเครื่องเล่นบนเครื่องที่ต่อลำโพง แล้วเลือกเครื่องเล่นเดียวกันบนมือถือไมค์แต่ละเครื่อง
+เมื่อเชื่อมต่อครบ เครื่องเล่นจะแสดง **2/2** และหยุดไมค์เครื่องหนึ่งได้โดยอีกเครื่องยังใช้งานต่อ
+
+แอปค้นหาด้วย Android NSD/mDNS ควบคู่กับ UDP broadcast และยืนยันเครื่องเล่นด้วย unicast
+หากยังไม่พบ ให้แตะสถานะบนเครื่องเล่นเพื่อดู IP แล้วใช้ «เชื่อมต่อด้วย IP» บนเครื่องไมค์
+Wi-Fi สำหรับแขกหรือ AP/client isolation ต้องอนุญาตให้อุปกรณ์คุยกันก่อน
+
+รายการค้นหาแสดงยี่ห้อและรุ่นของเครื่องเล่นพร้อม IP เพื่อแยกเครื่องรุ่นเดียวกัน

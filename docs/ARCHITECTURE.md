@@ -63,14 +63,14 @@ Capture ไม่ได้ mute เสียงต้นฉบับอัตโ
 - RECORD_AUDIO: runtime เฉพาะ Mic, ไม่เปิด output stream บนเครื่องไมค์เพื่อเลี่ยงการ monitor ซ้ำ
 - INTERNET, ACCESS_NETWORK_STATE, ACCESS_WIFI_STATE, CHANGE_WIFI_MULTICAST_STATE: LAN และ discovery
 - BLUETOOTH_CONNECT: runtime บน API 31+ เมื่อผู้ใช้เลือก Bluetooth ไม่ใช้ communication mode/SCO เป็นค่าเริ่มต้น
-- MulticastLock ใช้ระหว่าง discovery แล้ว release ทุกครั้งที่ออกจาก session
+- MulticastLock ใช้ระหว่าง discovery แล้ว release ทุกครั้งที่ออกจาก session; Host ประกาศ Android NSD `_karaokelink._udp.` ส่วน Mic resolve IPv4 และส่ง UDP discovery แบบ unicast ควบคู่กับ broadcast โดยใช้ source port แยกต่อเครื่อง
 - โหมด Mic ใช้ microphone foreground service หลังได้รับสิทธิ์และผู้ใช้เชื่อมต่อ เครื่อง Host/WebView ยังทำงานเฉพาะ foreground; ไม่มี MediaProjection capture
 - targetSdk 35 ใช้ permission behavior ปัจจุบันของ target นี้ หากยกระดับ targetSdk เป็น 37+ ต้องเพิ่ม ACCESS_LOCAL_NETWORK runtime flow ตามเอกสาร Android; บนเครื่องที่เปิด local-network restrictions แบบทดสอบต้องตรวจเงื่อนไขเพิ่มเติม
 - route เปลี่ยน/ถอด USB: Oboe error ถูกแสดงบน UI แล้วให้เริ่ม session ใหม่ ไม่ reopen stream บน audio error callback
 
 ## งานต่อก่อน production
 
-การปรับจูน jitter/drift จากการวัดจริง, native music bus, measured route reporting, per-mic gain, smoother limiter/delay, audio focus integration ที่ทดสอบร่วมกับเว็บ, ทดสอบ foreground microphone บนหลายผู้ผลิต, network selection/binding สำหรับ Wi-Fi ที่ไม่มี Internet พร้อม VPN/หลาย interface, NSD alternative และการทดสอบ target SDK ใหม่
+การปรับจูน jitter/drift จากการวัดจริง, native music bus, measured route reporting, per-mic gain, smoother limiter/delay, audio focus integration ที่ทดสอบร่วมกับเว็บ, ทดสอบ foreground microphone บนหลายผู้ผลิต, network selection/binding สำหรับ Wi-Fi ที่ไม่มี Internet พร้อม VPN/หลาย interface และการทดสอบ target SDK ใหม่
 
 Control และ PCM เป็น plaintext LAN prototype: nonce/session ใช้แยก session และตรวจ source ไม่ใช่ authentication/encryption ใช้เฉพาะเครือข่ายที่เชื่อถือได้ เพิ่ม pairing code/key exchange และ authenticated packets ก่อนรองรับเครือข่ายสาธารณะ Broadcast อาจถูก AP isolation, VPN, firewall หรือ Hotspot block; manual IP ช่วยเฉพาะกรณี unicast ติดต่อกันได้
 

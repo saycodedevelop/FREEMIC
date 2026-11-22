@@ -27,6 +27,7 @@ import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.webkit.*
 import android.widget.*
+import com.karaokelink.core.network.DeviceName
 import com.karaokelink.data.AndroidSessionRepository
 import com.karaokelink.data.SessionRuntime
 import com.karaokelink.domain.*
@@ -297,6 +298,7 @@ open class MainActivity : Activity() {
 
     private fun showHostConnection() {
         val content = column().apply { setPadding(0, 0, 0, dp(8)) }
+        text(content, DeviceName.current(), 20f, accent)
         text(content, getString(R.string.host_steps), 15f, muted)
         text(content, getString(R.string.use_this_ip), 13f, muted)
         text(content, localIps(), 20f, accent).apply { setTextIsSelectable(true) }

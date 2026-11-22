@@ -1,26 +1,66 @@
+﻿"""Render release notes from explicitly translated Unreleased changelog sections."""
+import argparse
+import re
 import sys
 from pathlib import Path
+from release_version import parse
 
-version = sys.argv[1]
-text = Path("CHANGELOG.md").read_text(encoding="utf-8")
-changes = text.split("## [Unreleased]", 1)[1].split("\n## [", 1)[0].strip()
-print(f"""# KaraokeLink v{version}
+ROOT = Path(__file__).resolve().parents[1]
+LANGUAGES = {"th": "ไทย", "en": "English", "zh-CN": "简体中文", "vi": "Tiếng Việt", "id": "Bahasa Indonesia"}
 
-ไมโครโฟนไร้สายและเครื่องเล่นคาราโอเกะ สำหรับ Android ผ่าน Wi-Fi เดียวกัน
 
-{changes}
+def read_changes(changelog):
+    section = re.search(r"^## \[Unreleased\]\s*\n(.*?)(?=^## \[|\Z)", changelog, re.M | re.S)
+    if not section:
+        raise ValueError("CHANGELOG.md must contain an Unreleased section")
+    changes = {}
+    pattern = r"^### \[([^\]]+)\][^\n]*\n(.*?)(?=^### \[|\Z)"
+    for match in re.finditer(pattern, section.group(1), re.M | re.S):
+        language, body = match.group(1), match.group(2).strip()
+        if language not in LANGUAGES or language in changes or not body:
+            raise ValueError(f"Invalid, duplicate, or empty changelog translation: {language}")
+        changes[language] = body
+    missing = set(LANGUAGES) - changes.keys()
+    if missing:
+        raise ValueError(f"Missing changelog translations: {', '.join(sorted(missing))}")
+    return changes
 
-## ดาวน์โหลดและติดตั้ง
 
-- ดาวน์โหลด `KaraokeLink-{version}.apk` จากไฟล์แนบด้านล่าง รองรับ Android 9 ขึ้นไป
-- ติดตั้ง APK เดียวกันทั้งเครื่องเล่นและเครื่องไมค์
-- ถ้ามาจากรุ่น preview เดิม ต้องถอนรุ่นเดิมหนึ่งครั้ง เพราะเปลี่ยนเป็นกุญแจเซ็น release ถาวร หลังจากนี้อัปเดตทับได้
+def render_release(version, root=ROOT, language=None):
+    if parse(version) is None:
+        raise ValueError("Expected a semantic version such as 0.4.0")
+    if language is not None and language not in LANGUAGES:
+        raise ValueError(f"Unsupported language: {language}")
+    changes = read_changes((root / "CHANGELOG.md").read_text(encoding="utf-8-sig"))
+    selected = [language] if language else list(LANGUAGES)
+    parts = [f"# KaraokeLink v{version}"]
+    if language is None:
+        parts.append(" · ".join(f"[{label}](#{code.lower()})" for code, label in LANGUAGES.items()))
+    for code in selected:
+        template = (root / "docs/release-notes" / f"{code}.md").read_text(encoding="utf-8-sig")
+        if "{version}" not in template or "{changes}" not in template:
+            raise ValueError(f"Release template is missing placeholders: {code}")
+        body = template.replace("{version}", version).replace("{changes}", changes[code]).strip()
+        parts.append(f'<a name="{code.lower()}"></a>\n\n## {LANGUAGES[code]}\n\n{body}')
+    return "\n\n".join(parts) + "\n"
 
-## การตรวจสอบ
 
-ผ่าน Android build/lint, การทดสอบหน้าเล่นเพลงและ foreground microphone service,
-รวมถึงการทดสอบ C++ ด้วย sanitizers และการจำลอง jitter/clock drift
-ผลเสียงบน Bluetooth และการจัดการแบตเตอรี่ยังต้องตรวจบนมือถือและลำโพงจริง
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("version")
+    parser.add_argument("--language", choices=list(LANGUAGES), help="Render one language; defaults to all five")
+    parser.add_argument("--output", type=Path, help="Write UTF-8 Markdown directly to a file")
+    args = parser.parse_args()
+    try:
+        result = render_release(args.version, language=args.language)
+    except ValueError as error:
+        parser.error(str(error))
+    if args.output:
+        args.output.write_text(result, encoding="utf-8")
+    else:
+        sys.stdout.reconfigure(encoding="utf-8")
+        print(result, end="")
 
-ไฟล์ `SHA256SUMS.txt` ใช้ตรวจสอบความสมบูรณ์ของ APK
-""")
+
+if __name__ == "__main__":
+    main()
