@@ -3,6 +3,7 @@
 #include <oboe/Oboe.h>
 #include <jni.h>
 #include <arpa/inet.h>
+#include <android/multinetwork.h>
 #include <sys/socket.h>
 #include <sys/resource.h>
 #include <poll.h>
@@ -29,6 +30,7 @@ class Engine final : public oboe::AudioStreamDataCallback, public oboe::AudioStr
     std::atomic<float> vu{0}, hostGain{1};
     std::atomic<int> underruns{0}, queuedMs{0}, delayMs{0};
     bool mic=false;
+    std::atomic<bool> fast{true};
     int socketFd=-1;
     sockaddr_in destination{};
     uint32_t session=0;
@@ -50,7 +52,7 @@ class Engine final : public oboe::AudioStreamDataCallback, public oboe::AudioStr
             ->setSampleRateConversionQuality(oboe::SampleRateConversionQuality::Medium)
             ->setDataCallback(this)->setErrorCallback(this);
         if (mic) builder.setInputPreset(oboe::InputPreset::Unprocessed);
-        else builder.setUsage(oboe::Usage::Media)->setContentType(oboe::ContentType::Music);
+        else builder.setUsage(oboe::Usage::Game)->setContentType(oboe::ContentType::Music);
         if (deviceId != 0) builder.setDeviceId(deviceId);
         auto result=builder.openStream(stream);
         if (result != oboe::Result::OK) {
@@ -58,7 +60,7 @@ class Engine final : public oboe::AudioStreamDataCallback, public oboe::AudioStr
             result=builder.openStream(stream);
         }
         if (result != oboe::Result::OK || !stream || stream->getSampleRate()!=Rate) return false;
-        stream->setBufferSizeInFrames(stream->getFramesPerBurst()*(mic ? 2 : 4));
+        stream->setBufferSizeInFrames(stream->getFramesPerBurst()*((mic || fast.load()) ? 2 : 4));
         return stream->requestStart()==oboe::Result::OK;
     }
     void networkLoop() {
@@ -103,10 +105,15 @@ class Engine final : public oboe::AudioStreamDataCallback, public oboe::AudioStr
     }
 public:
     ~Engine() { stop(); }
-    bool start(bool isMic, const char* ip, uint32_t id, int deviceId) {
+    void lowLatency(bool enabled) {
+        fast.store(enabled);
+        if (stream && !mic) stream->setBufferSizeInFrames(stream->getFramesPerBurst()*(enabled ? 2 : 4));
+    }
+    bool start(bool isMic, const char* ip, uint32_t id, int deviceId, uint64_t network=0) {
         mic=isMic; session=id; capture.session=id;
         socketFd=socket(AF_INET,SOCK_DGRAM,0);
         if (socketFd<0) return false;
+        if (mic && network && android_setsocknetwork(network, socketFd) != 0) { stop(); return false; }
         int buffer=262144;
         setsockopt(socketFd,SOL_SOCKET,SO_RCVBUF,&buffer,sizeof(buffer));
         if (mic) {
@@ -152,7 +159,8 @@ public:
                 }
             }
         } else {
-            for (auto& p:peers) { preparePeer(p); p.playout.reserveForCallback(frames); }
+            const bool low = fast.load();
+            for (auto& p:peers) { preparePeer(p); p.playout.configureLowLatency(low); p.playout.reserveForCallback(frames); }
             const size_t delay=static_cast<size_t>(delayMs.load())*48;
             const float gain=hostGain.load();
             for (int i=0;i<frames;++i) {
@@ -187,6 +195,8 @@ static std::unique_ptr<Engine> engine;
 static Effects savedEffects;
 static float savedGain=1;
 static int savedDelay=0;
+static bool savedFast=true;
+static uint64_t savedMicNetwork=0;
 static void copyEffects(Effects& to,const Effects& from) {
     to.gain.store(from.gain.load()); to.gate.store(from.gate.load()); to.echoMs.store(from.echoMs.load());
     to.feedback.store(from.feedback.load()); to.echoMix.store(from.echoMix.load()); to.reverb.store(from.reverb.load());
@@ -194,7 +204,7 @@ static void copyEffects(Effects& to,const Effects& from) {
 }
 extern "C" {
 JNIEXPORT jboolean JNICALL Java_com_karaokelink_core_audio_NativeAudio_startHost(JNIEnv*,jobject,jint device) {
-    engine.reset(); engine=std::make_unique<Engine>(); copyEffects(engine->controls(),savedEffects); engine->mix(savedGain,savedDelay);
+    engine.reset(); engine=std::make_unique<Engine>(); copyEffects(engine->controls(),savedEffects); engine->mix(savedGain,savedDelay); engine->lowLatency(savedFast);
     if (engine->start(false,"",0,device)) return JNI_TRUE;
     engine.reset(); return JNI_FALSE;
 }
@@ -202,7 +212,7 @@ JNIEXPORT jboolean JNICALL Java_com_karaokelink_core_audio_NativeAudio_startMic(
     engine.reset(); engine=std::make_unique<Engine>(); copyEffects(engine->controls(),savedEffects);
     const char* address=env->GetStringUTFChars(ip,nullptr);
     if (!address) { engine.reset(); return JNI_FALSE; }
-    bool ok=engine->start(true,address,static_cast<uint32_t>(session),device);
+    bool ok=engine->start(true,address,static_cast<uint32_t>(session),device,savedMicNetwork);
     env->ReleaseStringUTFChars(ip,address);
     if (!ok) engine.reset();
     return ok ? JNI_TRUE : JNI_FALSE;
@@ -226,6 +236,12 @@ JNIEXPORT void JNICALL Java_com_karaokelink_core_audio_NativeAudio_setEffects(JN
     savedEffects.echoMix.store(std::clamp(echoMix,0.f,1.f)); savedEffects.reverb.store(std::clamp(reverb,0.f,1.f));
     savedEffects.low.store(std::clamp(low,0.f,2.f)); savedEffects.mid.store(std::clamp(mid,0.f,2.f)); savedEffects.high.store(std::clamp(high,0.f,2.f));
     if(engine) copyEffects(engine->controls(),savedEffects);
+}
+JNIEXPORT void JNICALL Java_com_karaokelink_core_audio_NativeAudio_setLowLatency(JNIEnv*,jobject,jboolean enabled) {
+    savedFast=enabled; if(engine) engine->lowLatency(enabled);
+}
+JNIEXPORT void JNICALL Java_com_karaokelink_core_audio_NativeAudio_setMicNetwork(JNIEnv*,jobject,jlong network) {
+    savedMicNetwork=static_cast<uint64_t>(network);
 }
 JNIEXPORT void JNICALL Java_com_karaokelink_core_audio_NativeAudio_setHostMix(JNIEnv*,jobject,jfloat gain,jint delay) {
     savedGain=gain; savedDelay=delay; if(engine) engine->mix(gain,delay);

@@ -13,6 +13,8 @@ class NativeAudio {
     external fun metrics(): FloatArray
     external fun setEffects(gain: Float, gate: Float, echoMs: Float, feedback: Float,
                             echoMix: Float, reverb: Float, low: Float, mid: Float, high: Float)
+    external fun setLowLatency(enabled: Boolean)
+    external fun setMicNetwork(handle: Long)
     external fun setHostMix(gain: Float, delayMs: Int)
     fun effects(e: MicEffects) = setEffects(e.gain, e.gate, e.echoMs, e.feedback,
         e.echoMix, e.reverb, e.low, e.mid, e.high)

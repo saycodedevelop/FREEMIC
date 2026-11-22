@@ -82,3 +82,20 @@ and produce simultaneous audible input; the player should show 2/2. Stop one mic
 other continues. Reconnect it without restarting the player. Repeat with broadcast filtered but mDNS
 and unicast allowed, an unsuccessful connection followed by retry, and a Wi-Fi reconnect. AP/client
 isolation still requires changing router settings; manual IP also needs working device-to-device traffic.
+
+## Hotspot and low latency
+
+PlayerHotspotTest covers credentials, duplicate starts, stop/late-start cleanup, permission errors,
+platform failure/retry, and system stop on API 32 and 35 with a fake Wi-Fi manager.
+WifiRoutingTest verifies microphone sockets use Wi-Fi without Internet rather than cellular, exclude
+VPN transports, and leave Host listening sockets unbound. ControlPanelTest verifies the latency switch
+is remembered and does not restart the player. Native playout tests cover 15 ms startup, profile
+switching, large callbacks, and clean/stressed 60-second +/-1500 ppm clock simulations with sanitizers.
+The low-latency stress case permits at most 24 briefly concealed packets per 12,000 generated (0.2%);
+stable and clean low-latency cases require zero underruns. All simulated cases require no sustained silence.
+
+On real Samsung A56 (microphone) and vivo V29 (player), follow LATENCY.md. Record Android versions,
+permission decisions, hotspot credentials being usable, a second microphone, discovery/manual IP,
+Internet behavior, audible delay, dropouts, and battery effects. Verify leaving Host or closing the app
+stops its hotspot while a system-created hotspot remains user-controlled. Compare normal Wi-Fi and
+player hotspot with added delay at zero and echo/reverb off. No device results are claimed by unit tests.

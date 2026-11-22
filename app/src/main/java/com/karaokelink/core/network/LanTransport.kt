@@ -1,6 +1,8 @@
 package com.karaokelink.core.network
 
 import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.*
 import java.net.*
@@ -9,6 +11,9 @@ import java.util.Collections
 /** Discovery 40101, control 40100, native PCM 40102. One owner per APK process. */
 class LanTransport(context: Context, private val broadcastTargets: () -> Set<InetAddress> = ::lanBroadcasts) {
     companion object { const val CONTROL = 40100; const val DISCOVERY = 40101 }
+    private val connectivity = context.getSystemService(ConnectivityManager::class.java)
+    var networkHandle: Long = 0
+        private set
     private val candidates = ConcurrentHashMap<String, Set<InetAddress>>()
     private val nsd = NsdDiscovery(context) { name, addresses ->
         if (addresses.isEmpty()) candidates.remove(name) else candidates[name] = addresses
@@ -29,6 +34,18 @@ class LanTransport(context: Context, private val broadcastTargets: () -> Set<Ine
             discovery = DatagramSocket(null).apply {
                 reuseAddress = true; broadcast = true
                 bind(InetSocketAddress(if (host) DISCOVERY else 0)); soTimeout = 500
+            }
+            // A hotspot without Internet may not be Android's default network. Bind only
+            // microphone UDP sockets to Wi-Fi; keep WebView free to use cellular Internet.
+            if (!host) {
+                connectivity?.allNetworks?.firstOrNull { network ->
+                    val caps = connectivity.getNetworkCapabilities(network)
+                    caps?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true &&
+                        !caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)
+                }?.let { network ->
+                    network.bindSocket(control!!); network.bindSocket(discovery!!)
+                    networkHandle = network.networkHandle
+                }
             }
             val controlSocket = control!!
             val discoverySocket = discovery!!
@@ -80,7 +97,7 @@ class LanTransport(context: Context, private val broadcastTargets: () -> Set<Ine
         nsd.stop(); candidates.clear()
         scope?.cancel(); scope = null
         discovery?.close(); control?.close()
-        discovery = null; control = null
+        discovery = null; control = null; networkHandle = 0
     }
 }
 private fun lanBroadcasts(): Set<InetAddress> = buildSet {

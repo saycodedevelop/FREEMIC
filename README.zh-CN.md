@@ -1,4 +1,4 @@
-﻿# KaraokeLink
+# KaraokeLink
 
 [ไทย](README.md) · [English](README.en.md) · [简体中文](README.zh-CN.md) · [Tiếng Việt](README.vi.md) · [Bahasa Indonesia](README.id.md)
 
@@ -60,3 +60,13 @@
 调试 APK：`app/build/outputs/apk/debug/app-debug.apk`。
 
 [架构（泰语/英语）](docs/ARCHITECTURE.md) · [局域网协议（泰语）](docs/PROTOCOL.md) · [真机测试（泰语/英语）](docs/TESTING.md) · [发布流程（英语）](docs/RELEASING.md)
+
+## 播放器热点和低延迟
+
+在播放器上打开 **声音设置 → 播放器 Wi-Fi 热点 → 创建播放器 Wi-Fi**，授予所需权限，再让各台麦克风连接显示的 Wi-Fi 名称和密码。返回麦克风应用并选择播放器。仍支持两台麦克风。离开播放器模式或 Activity 被销毁时，应用会释放自己创建的热点。
+
+本地热点不共享互联网，在线音乐可能需要移动数据，部分手机会断开原来的 Wi-Fi。如需共享互联网或选择 5 GHz，请使用系统热点设置。
+
+**低延迟模式**默认开启，将初始接收缓冲从 30 减至 15 ms，输出缓冲从四个 burst 减至两个；仍会根据网络抖动和音频回调大小调整。这些是缓冲设置，并非实测的嘴到音箱延迟。若有杂音或断音，请关闭此模式。比较延迟时，将附加延迟设为 0 并关闭麦克风回声/混响。热点可能减少网络波动，但无法消除硬件音频延迟。
+
+[延迟测试指南（泰语）](docs/LATENCY.md)

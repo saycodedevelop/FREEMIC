@@ -6,6 +6,9 @@ import android.app.Dialog
 import android.text.TextUtils
 import com.karaokelink.R
 import android.app.AlertDialog
+import android.content.Intent
+import android.provider.Settings
+import com.karaokelink.core.network.PlayerHotspot
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.pm.PackageManager
@@ -74,6 +77,9 @@ open class MainActivity : Activity() {
     private var micVolume = 1f
     private var musicVolume = 1f
     private var delayMs = 0
+    private val hotspot by lazy { PlayerHotspot(this) }
+    private var hotspotStatus: TextView? = null
+    private var hotspotButton: Button? = null
     private val accent = AppUi.mint
     private val screenColor = AppUi.background
     private val muted = AppUi.muted
@@ -100,6 +106,8 @@ open class MainActivity : Activity() {
         firstMode = savedInstanceState?.getString("mode")?.let { runCatching { Mode.valueOf(it) }.getOrNull() }
         lastUrl = savedInstanceState?.getString("musicUrl") ?: PlayerNavigation.HOME
         repository = createRepository()
+        repository.lowLatency(getSharedPreferences("karaokelink-ui", MODE_PRIVATE).getBoolean("lowLatency", true))
+        hotspot.onChanged = { updateHotspotUi() }
         ui.launch {
             repository.state.collect { state ->
                 if (rendered != state.mode) render(state.mode)
@@ -134,6 +142,8 @@ open class MainActivity : Activity() {
         statusPanel = null; micConnectSection = null; micControlPanel = null; micLivePanel = null
         micLiveTitle = null; micLiveHint = null; micStopButton = null; changePlayerButton = null
         discoveryExpanded = false
+        hotspotStatus = null; hotspotButton = null
+        if (mode != Mode.HOST) hotspot.stop()
         if (mode != Mode.HOST) window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         else window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         stage = FrameLayout(this).apply {
@@ -299,6 +309,7 @@ open class MainActivity : Activity() {
     private fun showHostConnection() {
         val content = column().apply { setPadding(0, 0, 0, dp(8)) }
         text(content, DeviceName.current(), 20f, accent)
+        button(content, getString(R.string.hotspot_title), false) { showHotspotSetup() }
         text(content, getString(R.string.host_steps), 15f, muted)
         text(content, getString(R.string.use_this_ip), 13f, muted)
         text(content, localIps(), 20f, accent).apply { setTextIsSelectable(true) }
@@ -308,6 +319,42 @@ open class MainActivity : Activity() {
         }
         showSettingsSheet(getString(R.string.connect_microphone), getString(R.string.two_phones_wifi), content)
     }
+    private fun showHotspotSetup() {
+        val content = column().apply { setPadding(0, 0, 0, dp(8)) }
+        text(content, getString(R.string.hotspot_hint), 14f, muted)
+        hotspotStatus = text(content, "", 16f, accent).apply { setTextIsSelectable(true) }
+        hotspotButton = button(content, getString(R.string.hotspot_start)) {
+            if (hotspot.state.ssid != null) hotspot.stop() else startPlayerHotspot()
+        }
+        button(content, getString(R.string.hotspot_system), false) {
+            runCatching { startActivity(Intent("android.settings.TETHER_SETTINGS")) }
+                .onFailure { runCatching { startActivity(Intent(Settings.ACTION_WIRELESS_SETTINGS)) } }
+        }
+        updateHotspotUi()
+        showSettingsSheet(getString(R.string.hotspot_title), DeviceName.current(), content)
+    }
+
+    private fun updateHotspotUi() {
+        val state = hotspot.state
+        hotspotStatus?.text = when {
+            state.starting -> getString(R.string.hotspot_starting)
+            state.failed -> getString(R.string.hotspot_failed)
+            state.ssid != null -> getString(R.string.hotspot_details, state.ssid, state.password ?: "—")
+            else -> getString(R.string.hotspot_idle)
+        }
+        hotspotButton?.text = getString(if (state.ssid != null) R.string.hotspot_stop else R.string.hotspot_start)
+        hotspotButton?.isEnabled = !state.starting
+    }
+
+    private fun startPlayerHotspot() {
+        if (repository.state.value.mode != Mode.HOST) return
+        val permission = if (Build.VERSION.SDK_INT >= 33) Manifest.permission.NEARBY_WIFI_DEVICES else Manifest.permission.ACCESS_FINE_LOCATION
+        val permissions = if (Build.VERSION.SDK_INT >= 33) arrayOf(permission)
+            else arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
+        if (checkSelfPermission(permission) != PackageManager.PERMISSION_GRANTED) requestPermissions(permissions, 13)
+        else hotspot.start()
+    }
+
     private fun chooseMic(ip: String?) {
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             pendingMic = true
@@ -337,6 +384,10 @@ open class MainActivity : Activity() {
             pendingMic = false
             chooseMic(pendingIp)
             pendingIp = null
+        }
+        if (requestCode == 13) {
+            if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) startPlayerHotspot()
+            else toast(getString(R.string.hotspot_permission))
         }
         if (requestCode == 11 && grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) pickOutput(true)
     }
@@ -506,6 +557,18 @@ open class MainActivity : Activity() {
 
     private fun hostSettings() {
         val settings = column().apply { setPadding(0, 0, 0, dp(8)) }
+        settings.addView(Switch(this).apply {
+            text = getString(R.string.low_latency)
+            setTextColor(AppUi.text); minHeight = dp(52)
+            isChecked = getSharedPreferences("karaokelink-ui", MODE_PRIVATE).getBoolean("lowLatency", true)
+            setOnCheckedChangeListener { _, checked ->
+                getSharedPreferences("karaokelink-ui", MODE_PRIVATE).edit().putBoolean("lowLatency", checked).apply()
+                repository.lowLatency(checked)
+            }
+        }, LinearLayout.LayoutParams(-1, -2))
+        text(settings, getString(R.string.low_latency_hint), 13f, muted)
+        text(settings, getString(R.string.latency_tips), 13f, muted)
+        button(settings, getString(R.string.hotspot_title), false) { showHotspotSetup() }
         text(settings, getString(R.string.volume), 17f)
         slider(settings, getString(R.string.master_mic), 0f, 2f, micVolume) { micVolume = it; repository.hostMix(micVolume, delayMs) }
         slider(settings, getString(R.string.music_volume), 0f, 1f, musicVolume) { musicVolume = it; setMusicVolume(true) }
@@ -713,6 +776,8 @@ open class MainActivity : Activity() {
         hideFullscreen(); destroyBrowser()
         if (repository is AndroidSessionRepository) SessionRuntime.release(repository as AndroidSessionRepository)
         else if (!repository.continuesInBackground) repository.destroy()
+        hotspot.onChanged = {}; hotspot.stop()
+        hotspotStatus = null; hotspotButton = null
         ui.cancel(); super.onDestroy()
     }
 }

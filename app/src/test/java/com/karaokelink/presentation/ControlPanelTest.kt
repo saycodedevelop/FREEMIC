@@ -84,6 +84,23 @@ class ControlPanelTest {
         assertFalse(sheet.isShowing)
         controller.pause().stop().destroy()
     }
+    @Test fun lowLatencyToggleDoesNotRestartPlayerAndIsRemembered() {
+        val controller = Robolectric.buildActivity(PlayerRegressionTest.TestActivity::class.java).setup()
+        val activity = controller.get()
+        click(activity.window.decorView, "เปิดเครื่องเล่นเพลง")
+        val selections = activity.fake.selections
+        click(activity.window.decorView, "ตั้งค่าเสียง")
+        val dialog = ShadowDialog.getLatestDialog()
+        val toggle = all(dialog.window!!.decorView).filterIsInstance<android.widget.Switch>().single()
+        toggle.isChecked = false
+        assertFalse(activity.fake.fast)
+        assertEquals(selections, activity.fake.selections)
+        click(dialog.window!!.decorView, "เสร็จแล้ว")
+        click(activity.window.decorView, "ตั้งค่าเสียง")
+        assertFalse(all(ShadowDialog.getLatestDialog().window!!.decorView).filterIsInstance<android.widget.Switch>().single().isChecked)
+        controller.pause().stop().destroy()
+    }
+
     @Test fun microphoneConfigurationIsAvailableBeforeConnecting() {
         val controller = Robolectric.buildActivity(PlayerRegressionTest.TestActivity::class.java).setup()
         val activity = controller.get()

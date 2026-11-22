@@ -18,6 +18,7 @@ class PlayoutBuffer {
     float fillError = 0, clockEstimate = 0;
     float previousSource = 0, blendFrom = 0;
     int blend = 0;
+    bool lowLatency = false;
     void clearPackets() { for (auto& slot : slots) slot.valid = false; count = 0; }
     void transition() { blendFrom = previousSource; blend = 48; }
     float source() {
@@ -53,9 +54,15 @@ class PlayoutBuffer {
 public:
     void reset(uint32_t id) {
         clearPackets(); session = id; based = primed = interpolating = false;
-        offset = Frames; target = minimum = 6; losses = stable = 0; missing = 0;
+        offset = Frames; target = minimum = lowLatency ? 3 : 6; losses = stable = 0; missing = 0;
         a = b = fraction = output = previousSource = blendFrom = 0; speed = 1; fillError = clockEstimate = 0; blend = 0;
         lastGood.samples.fill(0);
+    }
+    void configureLowLatency(bool enabled) {
+        if (lowLatency == enabled) return;
+        lowLatency = enabled;
+        target = minimum = enabled ? 3 : 6;
+        fillError = clockEstimate = 0;
     }
     bool push(const Block& block) {
         if (!session || block.session != session) return false;
@@ -79,7 +86,7 @@ public:
             if (!based || count < target) { output *= 0.99f; return output; }
             primed = true; interpolating = false; offset = Frames; losses = 0; transition();
         }
-        if (count > target + 12) {
+        if (count > target + (lowLatency ? 6 : 12)) {
             // Bounded emergency backlog recovery, with a short fade instead of a hard jump.
             for (int budget = Slots; budget > 0 && count > target + 2; --budget, ++nextSequence) {
                 auto& slot = slots[nextSequence & (Slots - 1)];
@@ -100,7 +107,7 @@ public:
         return output;
     }
     void reserveForCallback(int frames) {
-        minimum = std::clamp((frames + Frames - 1) / Frames + 2, 6, 24);
+        minimum = std::clamp((frames + Frames - 1) / Frames + (lowLatency ? 1 : 2), lowLatency ? 3 : 6, 24);
         target = std::max(target, minimum);
     }
     int queuedFrames() const { return count * Frames + (offset < Frames ? Frames - offset : 0); }

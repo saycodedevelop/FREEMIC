@@ -4,6 +4,9 @@
 
 ### [th] ไทย
 
+- เพิ่ม hotspot Wi-Fi จากเครื่องเล่น แสดงชื่อและรหัสผ่าน พร้อมทางลัดการตั้งค่า hotspot ของระบบ และจัดการสิทธิ์ตามรุ่น Android
+- เพิ่มโหมดหน่วงต่ำที่เปิดเป็นค่าเริ่มต้น ลดบัฟเฟอร์รับเริ่มต้นเป็น 15 ms และขาออกเป็น 2 bursts พร้อมสลับกลับโหมดเสถียรได้ ผูก UDP ของไมค์กับ Wi-Fi แม้เครือข่ายไม่แชร์อินเทอร์เน็ต
+
 - ค้นหาเครื่องเล่นด้วย Android NSD/mDNS ควบคู่กับ UDP broadcast และยืนยันด้วย unicast พร้อมแสดงยี่ห้อ รุ่น และ IP ของเครื่องเล่น
 - แยกพอร์ตค้นหาและเซสชันของไมค์ 2 เครื่อง ให้เชื่อมต่อพร้อมกันและหยุดแต่ละเครื่องได้อย่างอิสระ
 - เปิดระบบเครือข่ายกลับมาก่อนเชื่อมต่อซ้ำหลังล้มเหลว และคืนช่องไมค์ที่หมดเวลาทันทีเมื่อมีคำขอเชื่อมต่อใหม่
@@ -12,6 +15,9 @@
 - เพิ่ม README ครบห้าภาษาพร้อมลิงก์สลับภาษา และสร้าง Release จากรายการเปลี่ยนแปลงที่แปลครบทั้งห้าภาษา
 
 ### [en] English
+
+- Add a player-created local Wi-Fi hotspot with credentials, system hotspot settings, and Android-version-specific permissions.
+- Enable low latency by default with a 15 ms initial receive reserve and two-burst output buffer, with a stable-mode fallback; bind microphone UDP to Wi-Fi even without Internet access.
 
 - Discover players with Android NSD/mDNS alongside UDP broadcast and confirm them by unicast; show the player's manufacturer, model, and IP.
 - Give two microphones independent discovery ports and sessions for simultaneous connections and separate disconnects.
@@ -22,6 +28,9 @@
 
 ### [zh-CN] 简体中文
 
+- 增加播放器本地 Wi-Fi 热点，显示连接信息，提供系统热点设置入口，并按 Android 版本处理权限。
+- 默认启用低延迟模式，初始接收缓冲为 15 ms、输出缓冲为两个 burst，可切换回稳定模式；即使 Wi-Fi 没有互联网，也将麦克风 UDP 绑定到 Wi-Fi。
+
 - 使用 Android NSD/mDNS 和 UDP 广播搜索播放器，通过单播确认，并显示播放器的品牌、型号和 IP。
 - 为两台麦克风分配独立搜索端口和会话，支持同时连接及单独断开。
 - 连接失败后重试前重新开启网络传输，并在收到新连接请求时立即回收已超时的麦克风位置。
@@ -31,6 +40,9 @@
 
 ### [vi] Tiếng Việt
 
+- Thêm điểm phát Wi-Fi cục bộ từ máy phát nhạc với thông tin kết nối, lối tắt cài đặt hệ thống và quyền theo phiên bản Android.
+- Mặc định bật độ trễ thấp với bộ đệm nhận ban đầu 15 ms và đầu ra hai burst, có thể trở về chế độ ổn định; gắn UDP micro với Wi-Fi ngay cả khi mạng không có Internet.
+
 - Tìm máy phát nhạc bằng Android NSD/mDNS cùng UDP broadcast, xác nhận bằng unicast và hiển thị hãng, mẫu máy cùng IP.
 - Hai micro có cổng tìm kiếm và phiên riêng để kết nối đồng thời và ngắt từng máy độc lập.
 - Mở lại truyền tải mạng trước khi thử kết nối lại sau lỗi và thu hồi ngay vị trí micro đã hết thời gian khi có yêu cầu kết nối mới.
@@ -39,6 +51,9 @@
 - Thêm README năm ngôn ngữ với liên kết chuyển ngôn ngữ và tạo ghi chú phát hành từ nhật ký đã dịch đủ năm ngôn ngữ.
 
 ### [id] Bahasa Indonesia
+
+- Tambahkan hotspot Wi-Fi lokal dari pemutar dengan informasi koneksi, pintasan pengaturan sistem, dan izin sesuai versi Android.
+- Aktifkan latensi rendah secara bawaan dengan buffer penerima awal 15 ms dan keluaran dua burst serta pilihan mode stabil; ikat UDP mikrofon ke Wi-Fi meskipun tanpa Internet.
 
 - Temukan pemutar dengan Android NSD/mDNS bersama siaran UDP, konfirmasi lewat unicast, serta tampilkan merek, model, dan IP.
 - Berikan port pencarian dan sesi terpisah untuk dua mikrofon agar dapat terhubung bersamaan dan diputus secara mandiri.

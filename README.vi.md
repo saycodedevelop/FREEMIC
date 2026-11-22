@@ -1,4 +1,4 @@
-﻿# KaraokeLink
+# KaraokeLink
 
 [ไทย](README.md) · [English](README.en.md) · [简体中文](README.zh-CN.md) · [Tiếng Việt](README.vi.md) · [Bahasa Indonesia](README.id.md)
 
@@ -60,3 +60,13 @@ Dùng JDK 17 hoặc 21, Android SDK 35, NDK 27.0.12077973 và CMake 3.22.1. Đ�
 APK gỡ lỗi: `app/build/outputs/apk/debug/app-debug.apk`.
 
 [Kiến trúc (Thái/Anh)](docs/ARCHITECTURE.md) · [Giao thức LAN (Thái)](docs/PROTOCOL.md) · [Kiểm thử thiết bị (Thái/Anh)](docs/TESTING.md) · [Quy trình phát hành (Anh)](docs/RELEASING.md)
+
+## Điểm phát của máy phát nhạc và độ trễ thấp
+
+Trên máy phát nhạc, mở **Cài đặt âm thanh → Điểm phát Wi-Fi của máy phát nhạc → Tạo Wi-Fi từ máy phát nhạc**. Cấp quyền và kết nối từng micro vào tên Wi-Fi cùng mật khẩu được hiển thị. Quay lại ứng dụng micro và chọn máy phát nhạc. Vẫn hỗ trợ hai micro. Ứng dụng giải phóng điểm phát khi rời chế độ phát nhạc hoặc Activity bị hủy.
+
+Điểm phát cục bộ không chia sẻ Internet; nhạc trực tuyến có thể cần dữ liệu di động và một số máy ngắt Wi-Fi trước đó. Dùng cài đặt hệ thống để chia sẻ Internet hoặc chọn 5 GHz.
+
+**Chế độ độ trễ thấp** mặc định bật, giảm bộ đệm nhận ban đầu từ 30 xuống 15 ms và bộ đệm đầu ra từ bốn xuống hai burst; vẫn thích ứng với jitter và kích thước callback. Đây không phải độ trễ từ miệng đến loa đo thực tế. Tắt chế độ nếu âm thanh rè hoặc ngắt. Khi so sánh, đặt độ trễ thêm bằng 0 và tắt echo/reverb micro. Điểm phát có thể giảm dao động mạng nhưng không loại bỏ độ trễ phần cứng âm thanh.
+
+[Hướng dẫn kiểm tra độ trễ (tiếng Thái)](docs/LATENCY.md)

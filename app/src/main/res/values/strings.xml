@@ -166,4 +166,17 @@
     <string name="language">Language</string>
     <string name="system_language">System default</string>
     <string name="karaoke_search">karaoke</string>
+    <string name="hotspot_title">Player Wi-Fi hotspot</string>
+    <string name="hotspot_hint">Let the player create Wi-Fi and connect microphone phones to it. This local hotspot does not share Internet; online music may need mobile data. Some phones turn off their current Wi-Fi. Keep the player open. For Internet sharing or a 5 GHz option, use system hotspot settings.</string>
+    <string name="hotspot_start">Create player Wi-Fi</string>
+    <string name="hotspot_stop">Stop player Wi-Fi</string>
+    <string name="hotspot_starting">Creating Wi-Fi…</string>
+    <string name="hotspot_failed">Could not create Wi-Fi. Check nearby-device permission, or location permission and Location on older Android. Stop any existing hotspot, or use system hotspot settings.</string>
+    <string name="hotspot_details">Wi-Fi: %1$s\nPassword: %2$s\n\nConnect each microphone to this Wi-Fi, then return to the app and select this player.</string>
+    <string name="hotspot_idle">No app hotspot is running.</string>
+    <string name="hotspot_permission">Allow the requested Wi-Fi permission to create the hotspot.</string>
+    <string name="hotspot_system">Open system hotspot settings</string>
+    <string name="low_latency">Low latency mode</string>
+    <string name="low_latency_hint">Reduces audio waiting time. Turn this off if you hear crackling or dropouts. Actual delay still depends on the phones and network.</string>
+    <string name="latency_tips">For a delay check: set added delay to 0 and turn off microphone echo/reverb. Use a nearby, uncongested Wi-Fi network or the player hotspot. Try 5 GHz if available and keep devices close.</string>
 </resources>

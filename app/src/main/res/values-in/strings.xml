@@ -166,4 +166,17 @@
     <string name="language">Bahasa / Language</string>
     <string name="system_language">Ikuti sistem</string>
     <string name="karaoke_search">karaoke</string>
+    <string name="hotspot_title">Hotspot Wi-Fi pemutar</string>
+    <string name="hotspot_hint">Biarkan pemutar membuat Wi-Fi untuk ponsel mikrofon. Hotspot lokal ini tidak berbagi Internet; musik daring mungkin memerlukan data seluler. Beberapa ponsel memutus Wi-Fi sebelumnya. Biarkan layar pemutar terbuka. Gunakan pengaturan hotspot sistem untuk berbagi Internet atau memilih 5 GHz.</string>
+    <string name="hotspot_start">Buat Wi-Fi dari pemutar</string>
+    <string name="hotspot_stop">Hentikan Wi-Fi pemutar</string>
+    <string name="hotspot_starting">Membuat Wi-Fi…</string>
+    <string name="hotspot_failed">Tidak dapat membuat Wi-Fi. Periksa izin perangkat di sekitar, atau izin dan pengaktifan Lokasi pada Android lama. Matikan hotspot yang ada atau gunakan pengaturan sistem.</string>
+    <string name="hotspot_details">Wi-Fi: %1$s\nKata sandi: %2$s\n\nHubungkan setiap mikrofon ke Wi-Fi ini, lalu kembali ke aplikasi dan pilih pemutar.</string>
+    <string name="hotspot_idle">Hotspot aplikasi belum aktif.</string>
+    <string name="hotspot_permission">Izinkan akses Wi-Fi yang diminta untuk membuat hotspot.</string>
+    <string name="hotspot_system">Buka pengaturan hotspot sistem</string>
+    <string name="low_latency">Mode latensi rendah</string>
+    <string name="low_latency_hint">Mengurangi waktu tunggu audio. Matikan jika suara berderak atau terputus. Jeda nyata tetap bergantung pada ponsel dan jaringan.</string>
+    <string name="latency_tips">Saat menguji jeda: atur tambahan jeda ke 0 dan matikan echo/reverb mikrofon. Gunakan Wi-Fi dekat yang tidak padat atau hotspot pemutar. Coba 5 GHz jika tersedia dan dekatkan perangkat.</string>
 </resources>

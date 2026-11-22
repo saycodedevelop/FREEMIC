@@ -166,4 +166,17 @@
     <string name="language">Ngôn ngữ / Language</string>
     <string name="system_language">Theo hệ thống</string>
     <string name="karaoke_search">karaoke</string>
+    <string name="hotspot_title">Điểm phát Wi-Fi của máy phát nhạc</string>
+    <string name="hotspot_hint">Để máy phát nhạc tạo Wi-Fi cho các máy micro kết nối. Điểm phát cục bộ không chia sẻ Internet; nhạc trực tuyến có thể cần dữ liệu di động. Một số máy sẽ ngắt Wi-Fi hiện tại. Giữ màn hình phát nhạc mở. Dùng cài đặt điểm phát của hệ thống để chia sẻ Internet hoặc chọn 5 GHz.</string>
+    <string name="hotspot_start">Tạo Wi-Fi từ máy phát nhạc</string>
+    <string name="hotspot_stop">Dừng Wi-Fi của máy phát nhạc</string>
+    <string name="hotspot_starting">Đang tạo Wi-Fi…</string>
+    <string name="hotspot_failed">Không tạo được Wi-Fi. Kiểm tra quyền thiết bị ở gần, hoặc quyền và bật Vị trí trên Android cũ. Tắt điểm phát đang có hoặc dùng cài đặt hệ thống.</string>
+    <string name="hotspot_details">Wi-Fi: %1$s\nMật khẩu: %2$s\n\nKết nối từng micro vào Wi-Fi này, rồi quay lại ứng dụng và chọn máy phát nhạc.</string>
+    <string name="hotspot_idle">Ứng dụng chưa bật điểm phát.</string>
+    <string name="hotspot_permission">Cấp quyền Wi-Fi được yêu cầu để tạo điểm phát.</string>
+    <string name="hotspot_system">Mở cài đặt điểm phát hệ thống</string>
+    <string name="low_latency">Chế độ độ trễ thấp</string>
+    <string name="low_latency_hint">Giảm thời gian chờ âm thanh. Tắt nếu có tiếng rè hoặc ngắt âm. Độ trễ thực tế vẫn tùy điện thoại và mạng.</string>
+    <string name="latency_tips">Khi kiểm tra độ trễ: đặt độ trễ thêm bằng 0 và tắt echo/reverb của micro. Dùng Wi-Fi gần, ít tải hoặc điểm phát của máy phát nhạc. Thử 5 GHz nếu có và đặt các máy gần nhau.</string>
 </resources>

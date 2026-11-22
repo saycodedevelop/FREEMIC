@@ -45,7 +45,7 @@ static void lossAndRestart() {
     assert(!buffer.push(block(0)));
     assert(buffer.read()==0);
 }
-static void simulatedWifi(double clockPpm, int callbackFrames=48) {
+static void simulatedWifi(double clockPpm, int callbackFrames=48, bool fast=false, bool stress=true) {
     struct Event { double time; Block b; };
     std::vector<Event> events;
     constexpr int Seconds=60;
@@ -53,12 +53,13 @@ static void simulatedWifi(double clockPpm, int callbackFrames=48) {
     for (uint32_t seq=0;seq<Seconds*200;++seq) {
         // Delayed and reversed datagrams, plus periodically bunched Wi-Fi deliveries.
         const double jitter[]={0,7000,-2000,3000,-1000};
-        double arrival=seq*5000./rate+jitter[seq%5];
-        if (seq%100<3) arrival=(seq-seq%100+3)*5000./rate;
+        double arrival=seq*5000./rate+(stress ? jitter[seq%5] : 0);
+        if (stress && seq%100<3) arrival=(seq-seq%100+3)*5000./rate;
         events.push_back({arrival,block(seq)});
     }
     std::sort(events.begin(),events.end(),[](const Event& a,const Event& b){return a.time<b.time;});
     PlayoutBuffer buffer; buffer.reset(7);
+    buffer.configureLowLatency(fast);
     size_t event=0;
     int maxQueued=0, silent=0;
     buffer.reserveForCallback(callbackFrames);
@@ -73,12 +74,31 @@ static void simulatedWifi(double clockPpm, int callbackFrames=48) {
         maxQueued=std::max(maxQueued,buffer.queuedFrames());
     }
     std::cout<<"clock "<<clockPpm<<" ppm, callback="<<callbackFrames<<": underruns="<<buffer.underruns()<<", silent="<<silent<<", max queue="<<maxQueued<<" frames"<<std::endl;
-    assert(buffer.underruns()==0);
+    // The fast profile trades reserve for latency under adversarial Wi-Fi jitter.
+    // Permit at most 0.2% briefly concealed blocks; stable and clean fast runs must have none.
+    assert(buffer.underruns() <= (fast && stress ? 24u : 0u));
     assert(silent==0);
     assert(maxQueued<Frames*16);
 }
+static void fastStartupAndSwitching() {
+    PlayoutBuffer buffer; buffer.configureLowLatency(true); buffer.reset(7);
+    buffer.reserveForCallback(192);
+    assert(buffer.targetMs()==15);
+    buffer.push(block(0)); buffer.push(block(1));
+    for (int i=0;i<Frames;++i) assert(buffer.read()==0);
+    buffer.push(block(2));
+    float output=0;
+    for (int i=0;i<Frames;++i) output=buffer.read();
+    assert(output>0.3f);
+    buffer.configureLowLatency(false); buffer.reserveForCallback(192);
+    assert(buffer.targetMs()>=30);
+    buffer.configureLowLatency(true); buffer.reserveForCallback(1920);
+    assert(buffer.targetMs()>=45);
+}
 int main() {
-    reordered(); lossAndRestart();
+    reordered(); lossAndRestart(); fastStartupAndSwitching();
     simulatedWifi(0); simulatedWifi(-1500); simulatedWifi(1500); simulatedWifi(-1500,1920); simulatedWifi(1500,1920);
+    simulatedWifi(0,192,true); simulatedWifi(-1500,192,true); simulatedWifi(1500,192,true); simulatedWifi(1500,1920,true);
+    simulatedWifi(-1500,192,true,false); simulatedWifi(1500,192,true,false);
     std::cout<<"Reordering, duplicate/session rejection, wraparound, loss concealment, restart and 60-second clock drift simulations passed\n";
 }

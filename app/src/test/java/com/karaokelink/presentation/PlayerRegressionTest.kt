@@ -35,6 +35,8 @@ class PlayerRegressionTest {
         var background = false
         var selections = 0
         var destructions = 0
+        var fast = true
+        override fun lowLatency(enabled: Boolean) { fast = enabled }
         override val continuesInBackground: Boolean get() = background
         override suspend fun select(mode: Mode) { selections++; background = false; state.value = SessionState(mode = mode, status = "พร้อม") }
         override suspend fun connect(ip: String) {}

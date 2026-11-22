@@ -112,6 +112,7 @@ class AndroidSessionRepository(context: Context) : SessionRepository {
             when (p[1]) {
                 "ACCEPT" -> if (p.size == 4 && p[2] == nonce && session == 0) {
                     val id = p[3].toIntOrNull()?.takeIf { it > 0 } ?: return
+                    native.setMicNetwork(lan.networkHandle)
                     if (native.startMic(ip.hostAddress!!, id, input)) {
                         session = id; lastReply = now()
                         mutable.update { it.copy(status = "ส่งเสียงไปยัง ${ip.hostAddress}", peers = 1) }
@@ -168,6 +169,7 @@ class AndroidSessionRepository(context: Context) : SessionRepository {
         lock?.let { if (it.isHeld) it.release() }; lock = null
     }
     override fun effects(value: MicEffects) = native.effects(value)
+    override fun lowLatency(enabled: Boolean) = native.setLowLatency(enabled)
     override fun hostMix(gain: Float, delayMs: Int) = native.setHostMix(gain, delayMs)
     override fun inputDevice(id: Int) { input = id }
     override suspend fun outputDevice(id: Int) {

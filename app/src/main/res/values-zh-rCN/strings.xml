@@ -166,4 +166,17 @@
     <string name="language">语言 / Language</string>
     <string name="system_language">跟随系统</string>
     <string name="karaoke_search">卡拉OK</string>
+    <string name="hotspot_title">播放器 Wi-Fi 热点</string>
+    <string name="hotspot_hint">让播放器创建 Wi-Fi，麦克风手机连接此网络。本地热点不共享互联网；在线音乐可能需要移动数据。部分手机会断开原来的 Wi-Fi。请保持播放器界面打开。如需共享互联网或选择 5 GHz，请使用系统热点设置。</string>
+    <string name="hotspot_start">创建播放器 Wi-Fi</string>
+    <string name="hotspot_stop">停止播放器 Wi-Fi</string>
+    <string name="hotspot_starting">正在创建 Wi-Fi…</string>
+    <string name="hotspot_failed">无法创建 Wi-Fi。请检查附近设备权限，或旧版 Android 的位置权限及定位开关。先关闭现有热点，或使用系统热点设置。</string>
+    <string name="hotspot_details">Wi-Fi：%1$s\n密码：%2$s\n\n每台麦克风连接此 Wi-Fi 后，返回应用并选择此播放器。</string>
+    <string name="hotspot_idle">应用尚未开启热点。</string>
+    <string name="hotspot_permission">请授予请求的 Wi-Fi 权限以创建热点。</string>
+    <string name="hotspot_system">打开系统热点设置</string>
+    <string name="low_latency">低延迟模式</string>
+    <string name="low_latency_hint">减少音频等待时间。如有杂音或断音，请关闭此模式。实际延迟仍取决于手机和网络。</string>
+    <string name="latency_tips">测试延迟时，将附加延迟设为 0，并关闭麦克风回声和混响。使用附近空闲的 Wi-Fi 或播放器热点。支持时可尝试 5 GHz，并让设备靠近。</string>
 </resources>

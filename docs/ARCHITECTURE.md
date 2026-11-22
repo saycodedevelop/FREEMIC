@@ -107,5 +107,23 @@ queue. It reorders datagrams, rejects duplicates/foreign sessions, fades short l
 30-60 ms reserve (larger for large device callbacks), and uses bounded fractional resampling with a
 filtered PI fill controller to compensate clock drift. Long gaps re-prime; large backlogs are bounded
 and faded. No locks, heap allocation, JVM calls, or socket calls run in the audio callback.
-Output stream buffering is four hardware bursts; input remains two. Bluetooth radio/driver latency
+Current output buffering defaults to two hardware bursts in low latency mode; stable mode uses four, and input remains two. The initial playout reserve is 15 ms in low latency mode and 30 ms in stable mode, increasing for jitter and large callbacks. Bluetooth radio/driver latency
 and quality still depend on actual devices. Noise gate defaults to off to preserve quiet syllables.
+## Player hotspot and Wi-Fi routing
+
+The Activity owns a local-only hotspot reservation after an explicit user action. Android 13+ requests
+NEARBY_WIFI_DEVICES; older devices request fine and coarse location, and may need Location enabled.
+SSID/passphrase are displayed locally, never logged or added to discovery packets. Leaving Host or
+destroying the Activity closes only the app-owned reservation; delayed callbacks cannot resurrect it.
+The app also offers system hotspot settings for Internet sharing or band selection. A local-only hotspot
+does not provide Internet, and concurrent Wi-Fi/mobile-data behavior depends on the device.
+
+Microphone control/discovery sockets bind to an available non-VPN Wi-Fi Network without requiring
+Internet capability. The same network handle is applied to the native microphone socket using
+android_setsocknetwork. Host listening sockets remain unbound to an upstream network. WebView is not
+process-bound, so it can use the system Internet route independently. Reconnect after Wi-Fi changes.
+
+Low latency mode is stored in UI preferences and applied before opening audio. Switching it updates
+output buffering on the serialized lifecycle thread and applies playout policy in the audio callback.
+Native microphone output uses Oboe Usage::Game, low-latency/exclusive requests, and the existing shared
+fallback. These requests and reserve sizes do not establish actual end-to-end latency; see LATENCY.md.

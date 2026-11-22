@@ -1,4 +1,4 @@
-﻿# KaraokeLink
+# KaraokeLink
 
 [ไทย](README.md) · [English](README.en.md) · [简体中文](README.zh-CN.md) · [Tiếng Việt](README.vi.md) · [Bahasa Indonesia](README.id.md)
 
@@ -60,3 +60,13 @@ Gunakan JDK 17 atau 21, Android SDK 35, NDK 27.0.12077973, dan CMake 3.22.1. Atu
 APK debug: `app/build/outputs/apk/debug/app-debug.apk`.
 
 [Arsitektur (Thai/Inggris)](docs/ARCHITECTURE.md) · [Protokol LAN (Thai)](docs/PROTOCOL.md) · [Pengujian perangkat (Thai/Inggris)](docs/TESTING.md) · [Proses rilis (Inggris)](docs/RELEASING.md)
+
+## Hotspot pemutar dan latensi rendah
+
+Pada pemutar, buka **Pengaturan suara → Hotspot Wi-Fi pemutar → Buat Wi-Fi dari pemutar**. Berikan izin lalu hubungkan setiap mikrofon ke nama Wi-Fi dan kata sandi yang ditampilkan. Kembali ke aplikasi mikrofon dan pilih pemutar. Dua mikrofon tetap didukung. Aplikasi melepas hotspot buatannya saat keluar dari peran pemutar atau Activity dihancurkan.
+
+Hotspot lokal tidak berbagi Internet; musik daring mungkin memerlukan data seluler dan beberapa ponsel memutus Wi-Fi sebelumnya. Gunakan pengaturan hotspot sistem untuk berbagi Internet atau memilih 5 GHz.
+
+**Mode latensi rendah** aktif secara bawaan. Buffer penerima awal berkurang dari 30 menjadi 15 ms dan buffer keluaran dari empat menjadi dua burst; buffer tetap menyesuaikan jitter dan ukuran callback. Angka ini bukan hasil pengukuran jeda mulut ke speaker. Matikan mode jika suara berderak atau terputus. Saat membandingkan, atur tambahan jeda ke 0 dan matikan echo/reverb mikrofon. Hotspot dapat mengurangi variasi jaringan tetapi tidak menghilangkan jeda perangkat keras audio.
+
+[Panduan pengujian jeda (Thai)](docs/LATENCY.md)

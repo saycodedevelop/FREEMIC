@@ -27,6 +27,7 @@ interface SessionRepository {
     suspend fun select(mode: Mode)
     suspend fun connect(ip: String)
     fun effects(value: MicEffects)
+    fun lowLatency(enabled: Boolean) {}
     fun hostMix(gain: Float, delayMs: Int)
     fun inputDevice(id: Int)
     suspend fun outputDevice(id: Int)
